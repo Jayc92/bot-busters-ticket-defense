@@ -1,1671 +1,3687 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bot Busters: Ticket Defense</title>
-    <style>
-        /* ============================================
-           CSS STYLES
-           ============================================ */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0f1e" />
+<title>Bot Busters: Ticket Defense</title>
+<style>
+  /* =========================================================
+     STYLE — arcade defense look. Dark venue, neon lane paint,
+     no rounded SaaS cards, no pastel gradients.
+     ========================================================= */
+  :root{
+    --bg-0:#05070d;
+    --bg-1:#0a1020;
+    --bg-2:#0f1830;
+    --ink:#e9f1ff;
+    --ink-dim:#8ea3c7;
+    --line:#1c2a4a;
+    --fan:#3bd0ff;
+    --fan-2:#7ce7ff;
+    --bot:#ff445c;
+    --bot-2:#ff8a3b;
+    --gold:#ffd23f;
+    --good:#5bff9d;
+    --bad:#ff4b6e;
+    --violet:#b47aff;
+    --teal:#4de0c1;
+  }
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:radial-gradient(1200px 800px at 30% -10%, #14204a 0%, var(--bg-0) 60%);
+    color:var(--ink);
+    font-family:"Inter","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+    overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;user-select:none;
+  }
+  #app{
+    position:fixed;inset:0;
+    display:flex;flex-direction:column;
+    padding:8px;gap:8px;
+  }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            color: #fff;
-            overflow-x: hidden;
-        }
+  /* ---- HUD ---- */
+  #hud{
+    display:grid;
+    grid-template-columns: 1fr 2fr 2fr 1.4fr 1fr 1fr;
+    gap:8px;
+    align-items:center;
+    padding:8px 10px;
+    background:linear-gradient(180deg,#0d1730 0%,#070c1c 100%);
+    border:1px solid var(--line);
+    border-radius:4px;
+    font-variant-numeric:tabular-nums;
+    letter-spacing:.02em;
+    min-height:58px;
+  }
+  .stat-value.combo{color:#ffef7a;display:inline-flex;align-items:baseline;gap:6px}
+  .stat-value.combo em{font-style:normal;font-size:13px;padding:0 4px;background:#301c00;color:#ffd23f;border-radius:2px;letter-spacing:.06em}
+  .stat-value.combo.hot{color:#fff3a8;text-shadow:0 0 12px rgba(255,210,63,.6)}
+  .stat-value.combo.pulse{animation:comboPulse .35s ease-out}
+  @keyframes comboPulse{0%{transform:scale(1)}45%{transform:scale(1.18)}100%{transform:scale(1)}}
+  @media (prefers-reduced-motion: reduce){.stat-value.combo.pulse{animation:none}}
+  .stat{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .stat-label{
+    font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);
+  }
+  .stat-value{font-size:18px;font-weight:700;color:var(--ink);white-space:nowrap}
+  .stat-value.gold{color:var(--gold)}
+  .stat-value.fan{color:var(--fan-2)}
+  .stat-value.hp{color:var(--good)}
+  .bar{
+    height:8px;background:#0a1226;border:1px solid var(--line);position:relative;overflow:hidden;
+  }
+  .bar > i{display:block;height:100%;transition:width .15s linear}
+  .bar.hp > i{background:linear-gradient(90deg,#5bff9d,#37c9e0)}
+  .bar.fan > i{background:linear-gradient(90deg,#7ce7ff,#3bd0ff)}
+  .wave-name{font-size:13px;color:var(--ink-dim)}
 
-        h1 {
-            margin: 20px 0 10px;
-            font-size: 2.5rem;
-            text-shadow: 0 0 20px rgba(0, 200, 255, 0.5);
-            letter-spacing: 2px;
-        }
+  /* ---- Main area ---- */
+  #stage{
+    position:relative;flex:1 1 auto;min-height:0;
+    display:grid;
+    grid-template-columns: 1fr 220px;
+    gap:8px;
+  }
+  #canvas-wrap{
+    position:relative;
+    background:#04070f;
+    border:1px solid var(--line);
+    overflow:hidden;
+    border-radius:2px;
+  }
+  #game{display:block;width:100%;height:100%;touch-action:none}
 
-        .subtitle {
-            color: #00c8ff;
-            margin-bottom: 15px;
-            font-size: 1rem;
-        }
+  /* ---- Tower panel — arcade loadout style ---- */
+  #panel{
+    display:flex;flex-direction:column;gap:6px;
+    padding:8px;
+    background:linear-gradient(180deg,#0c1428 0%,#070c1c 100%);
+    border:1px solid var(--line);
+    border-radius:2px;
+    overflow-y:auto;
+  }
+  #panel h2{
+    margin:0 0 4px 2px;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-dim);
+  }
+  #tower-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px;
+  }
+  .tower-btn{
+    position:relative;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+    padding:6px 4px 6px 4px;
+    background:linear-gradient(180deg,#0f1a36 0%,#08122a 100%);
+    border:1px solid #23385f;
+    border-radius:4px;
+    color:var(--ink);
+    cursor:pointer;
+    font:inherit;
+    transition:transform .06s ease, filter .1s ease, box-shadow .1s ease;
+    min-height:78px;
+    overflow:hidden;
+  }
+  .tower-btn::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(60px 40px at 50% 30%, rgba(255,255,255,.05), transparent 70%);
+    pointer-events:none;
+  }
+  .tower-btn:hover{filter:brightness(1.15)}
+  .tower-btn:focus-visible{outline:2px solid var(--fan);outline-offset:1px}
+  .tower-btn.selected{
+    box-shadow:0 0 0 2px var(--fan), 0 0 12px rgba(59,208,255,.35), inset 0 0 20px rgba(59,208,255,.15);
+    border-color:var(--fan);
+  }
+  .tower-btn.locked{opacity:.38;filter:saturate(.3);cursor:not-allowed}
+  .tower-btn:active{transform:translateY(1px)}
+  .tower-btn .tglyph{
+    width:100%;height:44px;
+    display:grid;place-items:center;position:relative;
+  }
+  .tower-btn .tglyph canvas{width:44px;height:44px;display:block}
+  .tower-btn .tname{
+    font-size:10.5px;font-weight:700;letter-spacing:.02em;line-height:1;
+    text-align:center;margin-top:2px;
+    color:#dbe6ff;
+    max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .tower-btn .tcost{
+    font-size:11px;color:var(--gold);font-weight:800;font-variant-numeric:tabular-nums;
+    margin-top:2px;
+  }
+  .tower-btn.locked .tcost{color:#ff8a9c}
+  .tower-btn .thotkey{
+    position:absolute;top:3px;left:3px;font-size:9px;font-weight:700;color:#d6e2ff;
+    background:rgba(0,0,0,.55);border:1px solid #2c477c;padding:1px 4px;border-radius:2px;
+    letter-spacing:0;
+  }
 
-        /* HUD Styles */
-        #hud {
-            display: flex;
-            gap: 30px;
-            padding: 15px 30px;
-            background: rgba(0, 0, 0, 0.6);
-            border-radius: 10px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
+  /* ---- Selected tower detail strip ---- */
+  #detail{
+    padding:8px 10px;
+    background:linear-gradient(180deg,#0b1730 0%,#060b1a 100%);
+    border:1px solid #2c477c;
+    border-radius:3px;
+    display:none;
+  }
+  #detail.show{display:block}
+  #detail .dname{font-size:12px;font-weight:800;color:#dbe6ff;letter-spacing:.02em}
+  #detail .drow{display:flex;justify-content:space-between;gap:6px;margin-top:2px;font-size:11px;color:var(--ink-dim)}
+  #detail .drow b{color:var(--gold);font-weight:800}
+  #detail .dline{font-size:11px;color:#a8bde0;margin-top:4px;line-height:1.25}
 
-        .hud-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-width: 120px;
-        }
+  /* ---- Buttons ---- */
+  .btn{
+    appearance:none;border:1px solid var(--line);background:#0b1428;color:var(--ink);
+    padding:8px 12px;font:inherit;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:11px;
+    cursor:pointer;border-radius:2px;
+  }
+  .btn:hover{background:#132852;border-color:#294372}
+  .btn:focus-visible{outline:2px solid var(--fan);outline-offset:1px}
+  .btn.primary{background:#12305a;border-color:#2f6bc7;color:#dff1ff}
+  .btn.primary:hover{background:#1b4287}
+  .btn.danger{background:#3a1220;border-color:#7a2340;color:#ffd1dd}
 
-        .hud-label {
-            font-size: 0.75rem;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
+  /* ---- Wave banner — arcade alert, top-anchored, small & quick ---- */
+  #banner{
+    position:absolute;left:50%;top:14px;transform:translate(-50%,-14px);
+    padding:6px 14px 8px 14px;
+    background:linear-gradient(180deg, rgba(20,44,88,.95) 0%, rgba(4,10,26,.94) 100%);
+    border:1px solid #3b6ac2;
+    text-align:center;pointer-events:none;
+    opacity:0;transition:opacity .18s ease, transform .18s ease;
+    min-width:260px;max-width:70%;
+    box-shadow:0 4px 20px rgba(59,208,255,.25);
+    border-radius:4px;
+  }
+  #banner.show{opacity:1;transform:translate(-50%,0)}
+  #banner .w-num{font-size:10px;color:#a8bde0;letter-spacing:.28em;text-transform:uppercase;font-weight:700}
+  #banner .w-name{font-size:15px;font-weight:800;letter-spacing:.02em;margin:1px 0 2px 0;color:#fff;text-shadow:0 0 12px rgba(59,208,255,.4)}
+  #banner .w-hint{font-size:11px;color:var(--fan-2);font-weight:600}
 
-        .hud-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
+  /* ---- Overlay screens ---- */
+  #overlay{
+    position:absolute;inset:0;
+    background:radial-gradient(600px 400px at 50% 40%, rgba(20,40,80,.9) 0%, rgba(4,8,20,.98) 60%);
+    display:none;
+    z-index:20;
+    overflow-y:auto;             /* scroll the whole overlay if the card is tall */
+    padding:16px;
+  }
+  #overlay.show{
+    display:flex;
+    align-items:center;          /* center when it fits */
+    justify-content:center;
+  }
+  /* When the card is taller than the overlay, don't center-clip it — align to top. */
+  #overlay.show{ align-items:flex-start; }
+  @media (min-height:820px){ #overlay.show{ align-items:center; } }
+  .card{
+    width:min(520px,92vw);
+    flex:0 0 auto;
+    background:#070d1e;
+    border:1px solid #24406e;
+    padding:22px 22px 18px 22px;
+    box-shadow:0 20px 60px rgba(0,0,0,.6), inset 0 0 0 1px rgba(59,208,255,.06);
+  }
+  .card h1{margin:0 0 4px 0;font-size:28px;letter-spacing:.02em}
+  .card .sub{font-size:12px;color:var(--ink-dim);letter-spacing:.16em;text-transform:uppercase;margin-bottom:10px}
+  .card .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #1c2a4a;font-size:14px}
+  .card .row:last-of-type{border-bottom:none}
+  .card .row b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .card .actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .card .tease{margin-top:8px;padding:8px 10px;background:#0e1a34;border:1px dashed #2c477c;color:var(--fan-2);font-size:12px;letter-spacing:.06em}
+  /* Medal styling */
+  .medal{display:flex;align-items:center;gap:12px;margin:8px 0 10px 0;padding:10px 12px;background:#0b1428;border:1px solid #23385f;border-radius:4px}
+  .medal .medal-ring{
+    display:inline-block;width:44px;height:44px;border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, var(--m,#ffd23f), var(--m2,#8a6f00) 70%);
+    box-shadow:inset 0 0 0 3px rgba(0,0,0,.35), 0 0 16px rgba(255,210,63,.35);
+    position:relative;flex-shrink:0;
+  }
+  .medal .medal-ring::after{
+    content:'';position:absolute;inset:8px;border-radius:50%;
+    border:2px solid rgba(0,0,0,.35);
+  }
+  .medal .medal-label{font-size:22px;font-weight:900;letter-spacing:.14em;color:#fff}
+  .medal-perfect .medal-label{color:#fff3a8;text-shadow:0 0 12px rgba(255,210,63,.6)}
+  .medal-gold    .medal-label{color:#ffd23f}
+  .medal-silver  .medal-label{color:#d6dcea}
+  .medal-bronze  .medal-label{color:#e39a5e}
+  .best-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .best-row > div{display:flex;justify-content:space-between;padding:4px 8px;background:#0b1428;border:1px solid #1c2a4a;font-size:12px}
+  .best-row b{color:var(--gold);font-weight:800}
+  .best-row .new-best{margin-left:6px;font-size:10px;color:#5bff9d;font-style:normal;letter-spacing:.16em}
+  /* Score breakdown table */
+  .breakdown{margin:8px 0 4px 0;background:#0a1428;border:1px solid #1c2a4a;padding:6px 10px}
+  .breakdown .brow{display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#c8d6ee}
+  .breakdown .brow.total{font-weight:800;color:#fff;border-top:1px dashed #2c477c;padding-top:6px;margin-top:4px;font-size:14px}
+  .breakdown .brow.penalty{color:#ff9db1}
+  .breakdown .brow b{color:var(--gold);font-variant-numeric:tabular-nums;font-weight:800}
+  .breakdown .brow.total b{color:#fff}
+  /* Copy result / share */
+  .share-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .share-row .btn{flex:1;min-width:140px}
+  .share-fallback{display:none;margin-top:8px}
+  .share-fallback.show{display:block}
+  .share-fallback textarea{
+    width:100%;min-height:70px;padding:8px 10px;background:#050a18;color:#e9f1ff;
+    border:1px solid #2c477c;border-radius:2px;font:12px/1.35 ui-monospace,Menlo,monospace;
+    resize:vertical;
+  }
+  .share-fallback .hint{font-size:11px;color:var(--ink-dim);margin-top:4px}
+  /* Venue selector */
+  .venue-select{display:flex;gap:6px;margin:6px 0 8px 0;flex-wrap:wrap}
+  .venue-select button{
+    flex:1;min-width:140px;background:#0b1428;color:#e9f1ff;border:1px solid #23385f;
+    padding:8px 10px;font:inherit;font-size:12px;cursor:pointer;text-align:left;border-radius:3px;
+  }
+  .venue-select button b{display:block;font-size:13px;letter-spacing:.02em;margin-bottom:2px}
+  .venue-select button i{font-style:normal;font-size:10.5px;color:var(--ink-dim);letter-spacing:.06em}
+  .venue-select button.active{border-color:var(--fan);box-shadow:inset 0 0 0 1px rgba(59,208,255,.35)}
+  .venue-select button.locked{opacity:.5;cursor:not-allowed}
+  .venue-select .neon.active{border-color:#ff7bd6;box-shadow:inset 0 0 0 1px rgba(255,123,214,.4)}
 
-        .currency { color: #ffd700; }
-        .health { color: #00ff88; }
-        .satisfaction { color: #00c8ff; }
-        .wave { color: #ff6b6b; }
+  /* ---- Tower context menu (canvas-anchored) ---- */
+  #ctx-menu{
+    position:absolute;
+    background:#070d1e;border:1px solid #294372;
+    padding:6px;min-width:160px;
+    display:none;z-index:15;
+    box-shadow:0 12px 30px rgba(0,0,0,.55);
+  }
+  #ctx-menu.show{display:block}
+  #ctx-menu .row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 2px;font-size:12px}
+  #ctx-menu .actions{display:flex;gap:6px;margin-top:6px}
+  #ctx-menu button{flex:1}
 
-        /* Health/Satisfaction Bars */
-        .bar-container {
-            width: 100px;
-            height: 10px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 5px;
-            overflow: hidden;
-            margin-top: 5px;
-        }
+  /* ---- Foot bar ---- */
+  #foot{
+    display:flex;gap:8px;align-items:center;justify-content:space-between;
+    padding:6px 8px;
+    background:#0a1226;border:1px solid var(--line);
+    border-radius:2px;
+    font-size:12px;color:var(--ink-dim);
+  }
+  #foot .hint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-        .bar-fill {
-            height: 100%;
-            transition: width 0.3s ease;
-        }
+  /* ---- Mobile — bigger horizontal arcade buttons ---- */
+  @media (max-width: 820px){
+    #hud{grid-template-columns:1fr 1fr;grid-auto-rows:auto;gap:6px;padding:6px 8px;min-height:0}
+    #hud .stat.wave-cell{grid-column:1 / -1}
+    #hud .stat.combo-cell{grid-column:1 / -1}
+    .stat-value.combo{font-size:14px}
+    .stat-value.combo em{font-size:11px}
+    .stat-value{font-size:14px}
+    #stage{grid-template-columns:1fr;grid-template-rows: 1fr auto}
+    #panel{
+      flex-direction:column;padding:6px;gap:6px;
+      max-height:145px;
+    }
+    #panel h2{display:none}
+    #tower-grid{
+      grid-template-columns:repeat(7, 68px);
+      overflow-x:auto;overflow-y:hidden;
+      gap:6px;padding-bottom:4px;
+    }
+    .tower-btn{
+      min-width:68px;min-height:78px;padding:4px 3px 4px 3px;
+    }
+    .tower-btn .tname{font-size:9.5px}
+    .tower-btn .tcost{font-size:11px}
+    #detail{padding:6px 8px}
+    #detail .dname{font-size:11px}
+    #detail .drow, #detail .dline{font-size:10.5px}
+    #banner{padding:4px 10px 6px 10px;min-width:220px;max-width:92%}
+    #banner .w-name{font-size:13px}
+    #banner .w-hint{font-size:10.5px}
+    #foot{flex-wrap:wrap;font-size:11px}
+    .btn{padding:10px 12px;font-size:11px}
+  }
 
-        .health-bar { background: linear-gradient(90deg, #00ff88, #00cc6a); }
-        .satisfaction-bar { background: linear-gradient(90deg, #00c8ff, #0088cc); }
-
-        /* Game Container */
-        #game-container {
-            position: relative;
-            display: flex;
-            gap: 15px;
-            align-items: flex-start;
-        }
-
-        #gameCanvas {
-            border: 3px solid #00c8ff;
-            border-radius: 10px;
-            box-shadow: 0 0 30px rgba(0, 200, 255, 0.3);
-            cursor: crosshair;
-        }
-
-        /* Defense Panel */
-        #defense-panel {
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 10px;
-            padding: 15px;
-            width: 200px;
-        }
-
-        #defense-panel h3 {
-            text-align: center;
-            margin-bottom: 15px;
-            color: #00c8ff;
-            font-size: 1rem;
-        }
-
-        .defense-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 10px;
-            margin-bottom: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid transparent;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            width: 100%;
-        }
-
-        .defense-btn:hover {
-            background: rgba(0, 200, 255, 0.2);
-            border-color: #00c8ff;
-        }
-
-        .defense-btn.selected {
-            background: rgba(0, 200, 255, 0.3);
-            border-color: #00c8ff;
-            box-shadow: 0 0 15px rgba(0, 200, 255, 0.4);
-        }
-
-        .defense-btn.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .defense-icon {
-            font-size: 1.8rem;
-            margin-bottom: 5px;
-        }
-
-        .defense-name {
-            font-size: 0.85rem;
-            font-weight: bold;
-            margin-bottom: 3px;
-        }
-
-        .defense-cost {
-            font-size: 0.75rem;
-            color: #ffd700;
-        }
-
-        .defense-desc {
-            font-size: 0.65rem;
-            color: #888;
-            text-align: center;
-            margin-top: 3px;
-        }
-
-        /* Wave Banner */
-        #wave-banner {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
-            padding: 30px 60px;
-            border-radius: 15px;
-            border: 3px solid #ff6b6b;
-            text-align: center;
-            z-index: 100;
-            animation: fadeIn 0.5s ease;
-            display: none;
-        }
-
-        #wave-banner.show {
-            display: block;
-        }
-
-        #wave-banner h2 {
-            color: #ff6b6b;
-            font-size: 2rem;
-            margin-bottom: 10px;
-        }
-
-        #wave-banner p {
-            color: #ccc;
-            font-size: 1rem;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        }
-
-        /* Game Over / Victory Screen */
-        #overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 200;
-        }
-
-        #overlay.show {
-            display: flex;
-        }
-
-        .overlay-content {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            padding: 40px 60px;
-            border-radius: 20px;
-            text-align: center;
-            border: 3px solid #00c8ff;
-            box-shadow: 0 0 50px rgba(0, 200, 255, 0.4);
-        }
-
-        .overlay-content h2 {
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-        }
-
-        .victory h2 { color: #00ff88; }
-        .defeat h2 { color: #ff6b6b; }
-
-        .stats {
-            margin: 20px 0;
-            text-align: left;
-        }
-
-        .stat-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .stat-label { color: #888; }
-        .stat-value { color: #fff; font-weight: bold; }
-
-        #restart-btn {
-            margin-top: 20px;
-            padding: 15px 40px;
-            font-size: 1.2rem;
-            background: linear-gradient(135deg, #00c8ff, #0088cc);
-            border: none;
-            border-radius: 10px;
-            color: #fff;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-        }
-
-        #restart-btn:hover {
-            transform: scale(1.05);
-        }
-
-        /* Start Button */
-        #start-wave-btn {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 12px 30px;
-            font-size: 1rem;
-            background: linear-gradient(135deg, #ff6b6b, #cc5555);
-            border: none;
-            border-radius: 8px;
-            color: #fff;
-            cursor: pointer;
-            z-index: 50;
-            transition: transform 0.2s ease;
-        }
-
-        #start-wave-btn:hover {
-            transform: translateX(-50%) scale(1.05);
-        }
-
-        #start-wave-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* Tooltip */
-        #tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.9);
-            padding: 10px 15px;
-            border-radius: 8px;
-            border: 1px solid #00c8ff;
-            pointer-events: none;
-            z-index: 150;
-            display: none;
-            max-width: 200px;
-        }
-
-        #tooltip.show {
-            display: block;
-        }
-
-        #tooltip h4 {
-            color: #00c8ff;
-            margin-bottom: 5px;
-        }
-
-        #tooltip p {
-            font-size: 0.8rem;
-            color: #ccc;
-        }
-
-        /* Instructions */
-        #instructions {
-            margin-top: 15px;
-            padding: 10px 20px;
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 8px;
-            font-size: 0.8rem;
-            color: #888;
-            text-align: center;
-        }
-    </style>
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
 </head>
 <body>
+<div id="app" role="application" aria-label="Bot Busters Ticket Defense">
+  <!-- ===== HUD ===== -->
+  <div id="hud" role="status" aria-live="polite">
+    <div class="stat">
+      <span class="stat-label">Credits</span>
+      <span class="stat-value gold" id="hud-credits">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Ticket Vault</span>
+      <div class="bar hp" aria-label="Ticket vault health"><i id="hud-hp"></i></div>
+      <span class="stat-value hp" id="hud-hp-text">100 / 100</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Fan Satisfaction</span>
+      <div class="bar fan" aria-label="Fan satisfaction"><i id="hud-fan"></i></div>
+      <span class="stat-value fan" id="hud-fan-text">100%</span>
+    </div>
+    <div class="stat wave-cell">
+      <span class="stat-label">Wave</span>
+      <span class="stat-value" id="hud-wave">1 · Basic Bot Probe</span>
+      <span class="wave-name" id="hud-wave-sub">TrueTix Onsale Zone</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Score</span>
+      <span class="stat-value" id="hud-score">0</span>
+    </div>
+    <div class="stat combo-cell" tabindex="0" aria-label="Combo. Bot streak means bigger score. Leaks reset it." title="Bot streak = bigger score. Leaks reset it.">
+      <span class="stat-label">Combo</span>
+      <span class="stat-value combo" id="hud-combo">— <em>x1</em></span>
+    </div>
+  </div>
+
+  <!-- ===== STAGE ===== -->
+  <div id="stage">
+    <div id="canvas-wrap">
+      <canvas id="game" aria-label="Game field"></canvas>
+
+      <!-- Wave banner -->
+      <div id="banner" aria-live="polite">
+        <div class="w-num" id="banner-num">Wave 1</div>
+        <div class="w-name" id="banner-name">Basic Bot Probe</div>
+        <div class="w-hint" id="banner-hint">Red bots bad. Blue fans good. Don't shoot fans.</div>
+      </div>
+
+      <!-- Tower context menu -->
+      <div id="ctx-menu" role="dialog" aria-label="Tower controls">
+        <div class="row"><b id="ctx-name">Tower</b><span id="ctx-lvl">Lv 1</span></div>
+        <div class="row"><span>Damage</span><span id="ctx-dmg">—</span></div>
+        <div class="row"><span>Range</span><span id="ctx-rng">—</span></div>
+        <div class="actions">
+          <button class="btn primary" id="ctx-upgrade">Upgrade</button>
+          <button class="btn danger" id="ctx-sell">Sell</button>
+        </div>
+      </div>
+
+      <!-- Start screen overlay -->
+      <div id="overlay" class="show" role="dialog" aria-modal="true" aria-labelledby="ovr-title">
+        <div class="card" id="overlay-card">
+          <h1 id="ovr-title">Bot Busters: Ticket Defense</h1>
+          <div class="sub">TrueTix — Onsale Perimeter</div>
+          <p style="font-size:13px;line-height:1.45;color:#c8d6ee;margin:6px 0 10px 0">
+            Bad bots are trying to steal tickets. Real fans need to get through.
+            Place defenses beside the lanes. Protect the <b>Ticket Vault</b>.
+            Do <b>not</b> harm the fans.
+          </p>
+          <div class="row"><span>Objective</span><b>Survive all 6 waves</b></div>
+          <div class="row"><span>Lose if</span><b>Vault hits 0 · Fan meter hits 0</b></div>
+          <div class="row"><span>Controls</span><b>Click / Tap to place · 1-7 hotkeys</b></div>
+          <div class="tease">Tip: Use <b>Device Fingerprint Scanner</b> to reveal disguised bots in Wave 3.</div>
+          <div class="actions">
+            <button class="btn primary" id="ovr-start">Deploy Defenses</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tower selection panel -->
+    <aside id="panel" aria-label="Tower selection">
+      <h2>Loadout</h2>
+      <div id="tower-grid" role="toolbar" aria-label="Choose a defense"></div>
+      <div id="detail" role="status" aria-live="polite">
+        <div class="dname" id="d-name">Select a defense</div>
+        <div class="drow"><span id="d-line" class="dline">Tap a tower, then tap a cell beside a lane.</span></div>
+        <div class="drow"><span>Cost</span><b id="d-cost">—</b></div>
+        <div class="dline" id="d-upgrade" style="color:#8ea3c7">1–7 keys select fast · Esc to cancel</div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ===== FOOT ===== -->
+  <div id="foot">
+    <span class="hint" id="foot-hint">Select a tower → tap a green cell beside a lane to place. Click a placed tower to upgrade.</span>
+    <span>
+      <button class="btn" id="btn-wave">Start Wave</button>
+      <button class="btn" id="btn-restart" title="Restart game">Restart</button>
+    </span>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =============================================================================
+   BOT BUSTERS: TICKET DEFENSE
+   Single-file HTML5 Canvas tower defense.
+   Code sections:
+     [1] CONFIG           - constants, balance, colors
+     [2] SFX              - stubbed sound hooks
+     [3] STATE            - runtime game state
+     [4] ENTITIES         - fan/bot definitions
+     [5] TOWERS           - defense definitions + upgrade tables
+     [6] WAVES            - wave definitions
+     [7] MATH / HELPERS   - vec2, easing, drawing helpers
+     [8] DRAW GLYPHS      - shared canvas icon drawing (units, towers)
+     [9] LAYOUT           - canvas sizing, lanes, placement cells
+     [10] INPUT           - mouse + touch + keyboard
+     [11] SIM             - spawn, movement, targeting, damage
+     [12] RENDER          - background, entities, towers, HUD overlay
+     [13] UI              - HUD, panel, banner, ctx menu, overlays
+     [14] LOOP            - main game loop
+     [15] BOOT            - init + panel wiring
+   ============================================================================= */
+
+/* ---------------------------------------------------------------------------
+ * [1] CONFIG
+ * ------------------------------------------------------------------------- */
+const CFG = {
+  LANES: 4,
+  START_CREDITS: 260,
+  START_HP: 100,
+  START_FAN: 100,
+  BOT_HP_LOSS: 10,          // dmg to vault when a basic bot escapes (tuned for W1 forgiveness)
+  FAN_HIT_PENALTY: 22,      // sat penalty when a fan is destroyed
+  FAN_ESCAPE_BONUS: 8,      // credits when a fan reaches the vault
+  FAN_ESCAPE_SCORE: 60,     // score per fan safe
+  BOT_KILL_SCORE: 40,       // score per bot destroyed
+  DESIGN_W: 1200,           // logical canvas coords; canvas scales down
+  DESIGN_H: 700,
+  LANE_TOP: 130,
+  LANE_BOTTOM: 640,
+  LANE_LEFT: 40,
+  LANE_RIGHT: 1120,         // bots reach vault beyond this
+  VAULT_X: 1140,
+  MAX_DT: 1/30,
+  REDUCED_MOTION: matchMedia('(prefers-reduced-motion: reduce)').matches,
+  // Combo tuning
+  COMBO_TIERS: [ // {min, mult}, first match wins
+    {min:35, mult:5, label:'x5'},
+    {min:20, mult:4, label:'x4'},
+    {min:10, mult:3, label:'x3'},
+    {min:5,  mult:2, label:'x2'},
+    {min:0,  mult:1, label:'x1'},
+  ],
+  COMBO_GRACE_AFTER_FAN_SAFE: 0.75, // seconds of protection after a safe fan
+  CLEAN_ENTRY_BONUS_PER_WAVE: 250,  // score if a wave clears with no bot leak
+};
+
+const COLORS = {
+  bg0:'#04070f',
+  bg1:'#0a1428',
+  laneEven:'#0b1730',
+  laneOdd:'#0a1428',
+  laneEdge:'#1a2c56',
+  spawn:'#5bff9d',
+  vault:'#ffd23f',
+  vaultDark:'#8f7420',
+  fan:'#3bd0ff',
+  fanGlow:'rgba(59,208,255,.45)',
+  fanVerified:'#7ce7ff',
+  bot:'#ff445c',
+  bot2:'#ff8a3b',
+  bad:'#ff2a55',
+  disguise:'#57c9ff',
+  slow:'#b47aff',
+  stun:'#ffe066',
+  captcha:'#ffb038',
+  scanner:'#4de0c1',
+  shield:'#3bd0ff',
+  wall:'#ff8a3b',
+  velocity:'#b47aff',
+  resale:'#ffd23f',
+  drone:'#8ea8ff',
+  ink:'#e9f1ff',
+  inkDim:'#8ea3c7',
+};
+
+/* ---------------------------------------------------------------------------
+ * [2] SFX — WebAudio blips + safe stubs. Zero autoplay; only fires on input.
+ * ------------------------------------------------------------------------- */
+let audioCtx = null;
+let audioReady = false;
+function unlockAudio(){
+  if(audioReady) return;
+  try{
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioReady = true;
+  }catch(e){ audioReady = false; }
+}
+function tone(freq, dur, type='square', gain=0.05, ramp=0){
+  if(!audioReady || CFG.REDUCED_MOTION) return;
+  const t0 = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type; osc.frequency.setValueAtTime(freq,t0);
+  if(ramp){ osc.frequency.exponentialRampToValueAtTime(Math.max(30,ramp), t0+dur); }
+  g.gain.setValueAtTime(gain,t0);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(t0); osc.stop(t0+dur+.02);
+}
+function sfxPlaceDefense(){ tone(320,.07,'triangle',.05); tone(500,.09,'triangle',.04); }
+function sfxDestroyBot(){ tone(220,.06,'square',.06,80); }
+function sfxFanSafe(){ tone(620,.07,'sine',.045); tone(880,.09,'sine',.04); }
+function sfxWaveStart(){ tone(180,.09,'sawtooth',.05); tone(280,.12,'sawtooth',.045); }
+function sfxGameOver(){ tone(160,.25,'sawtooth',.06,50); }
+function sfxUpgrade(){ tone(520,.06,'triangle',.05); tone(760,.09,'triangle',.05); }
+function sfxHit(){ tone(720,.04,'square',.03,400); }
+
+/* ---------------------------------------------------------------------------
+ * [3] STATE
+ * ------------------------------------------------------------------------- */
+const GS = {
+  running:false,           // sim active
+  mode:'menu',             // 'menu' | 'playing' | 'wavebreak' | 'win' | 'lose'
+  credits:CFG.START_CREDITS,
+  hp:CFG.START_HP,
+  fanSat:CFG.START_FAN,
+  score:0,
+  waveIdx:0,               // current wave index
+  waveRunning:false,
+  waveElapsed:0,
+  spawnQueue:[],           // time-sorted queue of {t, type, lane}
+  pendingSpawns:[],        // sub-spawn events like farm-split children {at, type, lane, x, y}
+  deferred:[],             // game-time deferred callbacks {at, fn}
+  entities:[],
+  towers:[],
+  projectiles:[],
+  particles:[],
+  floaties:[],             // floating "+$5" text
+  waveTimer:0,             // countdown between waves
+  time:0,
+  selectedTowerType:null,  // key from TOWERS
+  selectedTower:null,      // placed tower reference (for ctx menu)
+  hoverCell:null,
+  pointer:{x:0,y:0,over:false},
+  invalidFlash:0,          // time remaining for invalid-flash
+  stats:{
+    botsDestroyed:0,
+    fansSafe:0,
+    fansHarmed:0,
+    fansVerifiedSafe:0,
+    botsLeaked:0,
+    waveReached:1,
+    highestCombo:0,  // highest streak COUNT
+    maxMult:1,       // highest multiplier TIER reached (1..5)
+  },
+  // Combo / streak system.
+  combo:{
+    count:0,        // consecutive bot kills without a leak
+    mult:1,         // multiplier tier (1..5)
+    lastKillAt:-999,// last time a bot was killed
+    pulse:0,        // 0..1 arcade pulse anim after a combo up
+    breakAt:-999,   // time of last combo break (for "COMBO BROKEN" flash)
+    graceUntil:-999,// small grace window after clean fan safe
+  },
+  // Score breakdown accumulators — final score is derived from these.
+  breakdown:{
+    botsBase:0,       // base per-kill score
+    comboBonus:0,     // multiplier-derived score
+    fansSafe:0,       // score per fan safely delivered
+    verifiedBonus:0,  // bonus for verified fans reaching vault
+    resaleBonus:0,    // score credited by Resale Monitor
+    waveClearBase:0,  // base per-wave-clear points
+    penalties:0,      // negative points from leaks / fan harm
+    cleanEntry:0,     // bonus for waves cleared without a bot leak
+  },
+  waveHadLeak:false,   // tracks whether current wave had a leak (for CLEAN ENTRY bonus)
+  venueKey:'truetix',  // active venue
+  venueUnlocks:{neon:false}, // hydrated from localStorage
+  modifier:null,       // per-venue modifier snapshot (bot speed mult, score mult, ...)
+  cells:[],                // placement cells
+  lanes:[],                // lane rects
+  cues: {                  // one-shot teaching cues
+    firstFan:false, firstBot:false, firstReveal:false, firstCombo:false, firstBreak:false,
+  },
+};
+
+/* ---------------------------------------------------------------------------
+ * [4] ENTITIES
+ * ------------------------------------------------------------------------- */
+const UNIT = {
+  fan:      { name:'Fan',        hp:12,  speed: 55,  radius:14, kind:'fan',   damage:0 },
+  bot:      { name:'Basic Bot',  hp:22,  speed: 78,  radius:14, kind:'bot',   damage:CFG.BOT_HP_LOSS },
+  swarm:    { name:'Swarm Bot',  hp:12,  speed: 92,  radius:12, kind:'bot',   damage:8 },
+  ato:      { name:'ATO Bot',    hp:20,  speed: 60,  radius:14, kind:'bot',   damage:10, disguised:true },
+  proxy:    { name:'Proxy Bot',  hp:28,  speed: 82,  radius:14, kind:'bot',   damage:11, canSwitchLane:true },
+  farm:     { name:'ID Farm',    hp:60,  speed: 48,  radius:20, kind:'bot',   damage:16, splitsInto:{type:'mini',count:4} },
+  mini:     { name:'Mini Bot',   hp:8,   speed:105,  radius:10, kind:'bot',   damage:5 },
+  burst:    { name:'Rush Bot',   hp:22,  speed:170,  radius:12, kind:'bot',   damage:14 },
+};
+
+/* ---------------------------------------------------------------------------
+ * [5] TOWERS — cost, upgrade tables, per-level stats
+ * ------------------------------------------------------------------------- */
+const TOWERS = {
+  captcha: {
+    key:'captcha', name:'CAPTCHA Cannon',
+    short:'Single-target damage. Ignores fans.',
+    hotkey:'1', color:COLORS.captcha,
+    cost:[60,50,70],   // base + upgrade1 + upgrade2
+    // per-level stats [lv1, lv2, lv3]
+    range:[160,190,230],
+    damage:[12,18,28],
+    fireRate:[0.55,0.46,0.4],  // seconds between shots
+    projectileSpeed:[540,600,660],
+    targetKinds:['bot'],       // ignores fans by design
+  },
+  shield: {
+    key:'shield', name:'Verified Fan Shield',
+    short:'Tags fans as verified. Speed boost + safety glow.',
+    hotkey:'2', color:COLORS.shield,
+    cost:[45,40,60],
+    range:[140,170,200],
+    damage:[0,0,0],
+    fireRate:[0.35,0.28,0.22],
+    tagStrength:[1.15,1.25,1.35],
+  },
+  scanner: {
+    key:'scanner', name:'Device Fingerprint Scanner',
+    short:'Reveals disguised ATO bots in range.',
+    hotkey:'3', color:COLORS.scanner,
+    cost:[70,60,80],           // cheaper — critical for W3
+    range:[180,220,260],       // wider so one scanner can cover 2 lanes
+    damage:[0,0,0],
+    fireRate:[0.25,0.2,0.15],  // reveals quickly
+  },
+  wall: {
+    key:'wall', name:'Purchase Limit Wall',
+    short:'Slow field. Slows bots. Fans unaffected.',
+    hotkey:'4', color:COLORS.wall,
+    cost:[70,60,80],
+    range:[110,130,160],
+    damage:[0,0,0],
+    fireRate:[0.2,0.2,0.2],
+    slowFactor:[0.65,0.55,0.4],  // multiplier applied to bot speed
+  },
+  velocity: {
+    key:'velocity', name:'Suspicious Velocity Trap',
+    short:'Heavy damage to fast bots. Weak vs slow.',
+    hotkey:'5', color:COLORS.velocity,
+    cost:[90,70,110],
+    range:[160,190,220],
+    damage:[14,22,34],          // base; scaled by speed ratio (softened W6)
+    fireRate:[0.42,0.36,0.30],
+    projectileSpeed:[660,720,780],
+    speedRefFast:120,           // above this = full damage (burst=170, proxy=82)
+    speedRefSlow:60,            // at/below this = min damage
+    minMult:0.35,
+  },
+  resale: {
+    key:'resale', name:'Resale Monitor',
+    short:'Bonus credits per bot kill + wave trickle.',
+    hotkey:'6', color:COLORS.resale,
+    cost:[80,70,100],
+    range:[180,210,240],        // wider bonus radius
+    damage:[4,6,10],            // light chip damage
+    fireRate:[0.9,0.75,0.65],
+    projectileSpeed:[420,460,500],
+    bonusCredits:[8,14,22],     // stronger bonus
+    tickTrickle:[6,10,16],      // credits per wave-clear per monitor
+  },
+  drone: {
+    key:'drone', name:'Fraud Review Drone',
+    short:'Mobile patrol. Stuns bots it touches.',
+    hotkey:'7', color:COLORS.drone,
+    cost:[110,90,140],
+    range:[80,100,120],         // touch radius
+    damage:[0,0,0],
+    fireRate:[0.2,0.2,0.2],
+    stunDuration:[1.4,1.8,2.4],
+    patrolSpeed:[120,150,180],
+  },
+};
+const TOWER_ORDER = ['captcha','shield','scanner','wall','velocity','resale','drone'];
+
+/* ---------------------------------------------------------------------------
+ * [6] WAVES
+ * Each spawn: {t: seconds, type: unitKey, lane: 0..3 or 'r', group?: n}
+ * ------------------------------------------------------------------------- */
+const WAVES = [
+  // Wave 1 — basics only. Gentle. Learn: don't shoot the fans.
+  {
+    num:1, name:'Basic Bot Probe',
+    hint:"Red bots bad. Blue fans good. Don't shoot fans.",
+    reward:60,
+    spawns:[
+      {t:0.5, type:'bot', lane:0},
+      {t:2.0, type:'bot', lane:2},
+      {t:3.4, type:'fan', lane:1},
+      {t:4.6, type:'bot', lane:1},
+      {t:6.0, type:'bot', lane:3},
+      {t:7.4, type:'fan', lane:2},
+      {t:8.6, type:'bot', lane:0},
+      {t:9.8, type:'bot', lane:2},
+      {t:11.2,type:'fan', lane:3},
+      {t:12.4,type:'bot', lane:1},
+      {t:13.8,type:'bot', lane:3},
+      {t:15.0,type:'fan', lane:0},
+      {t:16.2,type:'bot', lane:2},
+    ]
+  },
+  // Wave 2 — coordinated swarms.
+  {
+    num:2, name:'Coordinated Swarm',
+    hint:'Swarms move in groups. Cover more lanes.',
+    reward:80,
+    spawns:[
+      {t:0.5, type:'bot',  lane:1},
+      {t:1.8, type:'fan',  lane:0},
+      {t:3.0, group:{type:'swarm', count:5, lane:2, spacing:0.35}},
+      {t:5.5, type:'bot',  lane:3},
+      {t:6.5, type:'fan',  lane:2},
+      {t:7.8, group:{type:'swarm', count:4, lane:0, spacing:0.35}},
+      {t:9.5, type:'bot',  lane:1},
+      {t:10.4,type:'fan',  lane:3},
+      {t:11.6,group:{type:'swarm', count:6, lane:1, spacing:0.3}},
+      {t:14.0,type:'bot',  lane:2},
+      {t:14.8,type:'fan',  lane:1},
+      {t:15.6,group:{type:'swarm', count:4, lane:3, spacing:0.35}},
+      {t:18.0,type:'bot',  lane:0},
+    ]
+  },
+  // Wave 3 — ATO bots disguised as fans. Scanner is critical.
+  {
+    num:3, name:'Account Takeover',
+    hint:'Some "fans" are bots in disguise. Deploy Device Fingerprint Scanner!',
+    reward:110,
+    spawns:[
+      {t:0.4, type:'fan',  lane:0},
+      {t:1.4, type:'ato',  lane:1},
+      {t:2.6, type:'bot',  lane:2},
+      {t:3.6, type:'fan',  lane:3},
+      {t:4.6, type:'ato',  lane:2},
+      {t:5.6, type:'fan',  lane:1},
+      {t:6.6, type:'ato',  lane:0},
+      {t:7.6, group:{type:'swarm', count:4, lane:3, spacing:0.35}},
+      {t:9.6, type:'fan',  lane:2},
+      {t:10.6,type:'ato',  lane:3},
+      {t:11.6,type:'fan',  lane:1},
+      {t:12.4,type:'ato',  lane:1},
+      {t:13.6,type:'bot',  lane:0},
+      {t:14.6,type:'ato',  lane:2},
+      {t:15.6,type:'fan',  lane:0},
+      {t:16.6,type:'bot',  lane:3},
+      {t:17.6,type:'ato',  lane:0},
+      {t:18.6,type:'fan',  lane:2},
+    ]
+  },
+  // Wave 4 — Proxy Network. Lane-switchers punish single-lane coverage.
+  {
+    num:4, name:'Proxy Network',
+    hint:'Proxy bots jump lanes — slow or stun before they dodge.',
+    reward:160,
+    spawns:[
+      {t:0.4, type:'proxy',lane:0},
+      {t:1.6, type:'fan',  lane:2},
+      {t:2.8, type:'proxy',lane:1},
+      {t:4.0, type:'proxy',lane:3},
+      {t:5.4, group:{type:'swarm', count:5, lane:2, spacing:0.3}},
+      {t:7.6, type:'proxy',lane:0},
+      {t:8.4, type:'fan',  lane:1},
+      {t:9.4, type:'proxy',lane:2},
+      {t:10.6,type:'fan',  lane:3},
+      {t:11.8,type:'proxy',lane:1},
+      {t:13.0,type:'proxy',lane:3},
+      {t:14.4,type:'ato',  lane:0},
+      {t:15.6,type:'fan',  lane:2},
+      {t:16.4,type:'proxy',lane:2},
+    ]
+  },
+  // Wave 5 — Fake Identity Farm splits into mini-bots on death.
+  {
+    num:5, name:'Fake Identity Farm',
+    hint:'Farms split into mini-bots — control the scatter.',
+    reward:240,
+    spawns:[
+      {t:0.4, type:'fan',  lane:1},
+      {t:1.2, type:'farm', lane:0},
+      {t:3.0, type:'farm', lane:2},
+      {t:4.6, type:'ato',  lane:3},
+      {t:6.0, type:'farm', lane:1},
+      {t:7.4, type:'fan',  lane:2},
+      {t:8.4, type:'proxy',lane:0},
+      {t:9.6, type:'farm', lane:3},
+      {t:11.0,type:'fan',  lane:0},
+      {t:12.0,type:'farm', lane:2},
+      {t:13.6,type:'proxy',lane:1},
+      {t:14.8,type:'farm', lane:0},
+      {t:16.4,type:'fan',  lane:3},
+    ]
+  },
+  // Wave 6 — Last-Second Checkout Rush. All threats + burst bots.
+  {
+    num:6, name:'Last-Second Checkout Rush',
+    hint:'Everything at once — Velocity Trap counters fast bots.',
+    reward:300,
+    spawns:[
+      // Opening probe
+      {t:0.6, type:'bot',   lane:0},
+      {t:1.2, type:'bot',   lane:3},
+      {t:2.0, type:'fan',   lane:1},
+      // ATO wave — scanner-check
+      {t:2.6, type:'ato',   lane:2},
+      {t:3.4, type:'ato',   lane:1},
+      // Swarm
+      {t:4.4, group:{type:'swarm', count:5, lane:2, spacing:0.28}},
+      {t:5.6, type:'fan',   lane:3},
+      // Proxy
+      {t:6.4, type:'proxy', lane:0},
+      {t:7.4, type:'proxy', lane:2},
+      // Farm midboss
+      {t:8.4, type:'farm',  lane:1},
+      {t:9.6, type:'fan',   lane:0},
+      {t:10.4,type:'farm',  lane:3},
+      // First burst chunk
+      {t:11.6,type:'burst', lane:0},
+      {t:12.0,type:'burst', lane:2},
+      // ATO mixed in
+      {t:12.6,type:'ato',   lane:3},
+      // Burst group (softer spacing)
+      {t:13.4,group:{type:'burst', count:4, lane:1, spacing:0.28}},
+      {t:14.8,type:'fan',   lane:2},
+      // Swarm + burst chaos
+      {t:15.6,group:{type:'swarm', count:4, lane:3, spacing:0.26}},
+      {t:16.6,type:'proxy', lane:1},
+      // Final rush
+      {t:18.0,group:{type:'burst', count:5, lane:0, spacing:0.26}},
+      {t:19.6,type:'ato',   lane:2},
+      {t:20.4,type:'burst', lane:3},
+      {t:20.8,type:'fan',   lane:1},
+      {t:21.8,group:{type:'burst', count:4, lane:2, spacing:0.26}},
+    ]
+  },
+];
+
+/* Venue palettes. Neon Arena unlocks after first Wave 6 victory.
+   Modifier reads: botSpeedMult, scoreMult, comboBuildBoost. Applied at
+   wave start / kill scoring. Every field listed here is actually used. */
+const VENUES = {
+  truetix: {
+    key:'truetix',
+    name:'TrueTix Onsale Zone',
+    short:'Standard rules. Learn the game.',
+    bg0:'#04070f', bg1:'#02040a',
+    laneEven:'#0b1730', laneOdd:'#0a1428',
+    accent:'#3bd0ff', vaultGlow:'rgba(255,210,63,.55)',
+    modifierLabel:null,
+    modifier:{ botSpeedMult:1.0, scoreMult:1.0, comboBuildBoost:0 },
+    unlocked:true,
+  },
+  neon: {
+    key:'neon',
+    name:'Neon Arena Gate',
+    short:'Faster bots · +15% score · combo builds faster',
+    bg0:'#0a0620', bg1:'#04021a',
+    laneEven:'#1b0f36', laneOdd:'#150a28',
+    accent:'#ff7bd6', vaultGlow:'rgba(255,123,214,.6)',
+    modifierLabel:'Faster bots · +15% score · combo builds faster',
+    modifier:{ botSpeedMult:1.10, scoreMult:1.15, comboBuildBoost:1 },
+    unlocked:false, // hydrated from localStorage
+  },
+};
+
+/* ---------------------------------------------------------------------------
+ * [7] MATH / HELPERS
+ * ------------------------------------------------------------------------- */
+const clamp = (v,a,b)=> v<a?a:(v>b?b:v);
+const rand  = (a,b)=> a + Math.random()*(b-a);
+const dist2 = (ax,ay,bx,by)=>{ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; };
+const easeOutCubic = t => 1-Math.pow(1-t,3);
+const now = ()=> performance.now()/1000;
+
+/* Convert design coords to canvas draw coords. We use a scale transform, so
+   sim always works in DESIGN_W/H space and the canvas element scales. */
+function laneY(idx){
+  const step = (CFG.LANE_BOTTOM - CFG.LANE_TOP) / CFG.LANES;
+  return CFG.LANE_TOP + step*(idx + 0.5);
+}
+function laneHeight(){ return (CFG.LANE_BOTTOM-CFG.LANE_TOP)/CFG.LANES; }
+
+/* ---------------------------------------------------------------------------
+ * [8] DRAW GLYPHS — canvas iconography (units + towers). All primitive shapes.
+ * ------------------------------------------------------------------------- */
+/* Draw a friendly walking fan silhouette — bigger, expressive, happy. */
+function drawFan(ctx, x, y, t, tinted, verified){
+  const bob = Math.sin(t*7)*2.2;
+  const step = Math.sin(t*7);
+  const col = tinted ? COLORS.disguise : (verified? COLORS.fanVerified : COLORS.fan);
+  const dark = '#0a1428';
+
+  // ground shadow
+  ctx.fillStyle='rgba(0,0,0,.4)';
+  ctx.beginPath(); ctx.ellipse(x, y+22, 13, 4, 0, 0, Math.PI*2); ctx.fill();
+
+  if(verified){
+    // sparkle safety ring
+    ctx.save();
+    const ringR = 22 + Math.sin(t*4)*2;
+    ctx.globalAlpha=.6;
+    ctx.strokeStyle=COLORS.fanVerified;
+    ctx.lineWidth=1.8;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.arc(x, y+bob, ringR, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    // sparkles
+    ctx.globalAlpha=.9;
+    ctx.fillStyle='#e6faff';
+    for(let i=0;i<4;i++){
+      const a = t*2 + i*Math.PI/2;
+      const sx = x + Math.cos(a)*ringR;
+      const sy = y+bob + Math.sin(a)*ringR;
+      ctx.fillRect(sx-1, sy-1, 2, 2);
+    }
+    ctx.restore();
+    // safety glow
+    ctx.save();
+    ctx.globalAlpha=.35;
+    const g = ctx.createRadialGradient(x, y+bob, 3, x, y+bob, 22);
+    g.addColorStop(0, 'rgba(124,231,255,.6)');
+    g.addColorStop(1, 'rgba(124,231,255,0)');
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(x, y+bob, 22, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  // body (torso rounded rect) — bigger
+  ctx.fillStyle = col;
+  roundRect(ctx, x-8, y-4+bob, 16, 18, 4, true, false);
+  // torso highlight
+  ctx.fillStyle = tinted ? 'rgba(255,255,255,.15)' : 'rgba(255,255,255,.25)';
+  roundRect(ctx, x-6, y-2+bob, 4, 8, 2, true, false);
+
+  // head — bigger
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(x, y-12+bob, 7, 0, Math.PI*2); ctx.fill();
+  // head highlight
+  ctx.fillStyle='rgba(255,255,255,.25)';
+  ctx.beginPath(); ctx.arc(x-2, y-14+bob, 2, 0, Math.PI*2); ctx.fill();
+
+  // happy face
+  ctx.fillStyle=dark;
+  ctx.fillRect(x-3, y-13+bob, 2, 2);
+  ctx.fillRect(x+1, y-13+bob, 2, 2);
+  ctx.strokeStyle=dark; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.arc(x, y-10+bob, 2, 0, Math.PI, false); ctx.stroke();
+
+  // arms (swinging)
+  ctx.strokeStyle = col; ctx.lineWidth = 3.6; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(x-8, y-1+bob); ctx.lineTo(x-12-step*3.5, y+7+bob);
+  ctx.moveTo(x+8, y-1+bob); ctx.lineTo(x+12+step*3.5, y+7+bob);
+  ctx.stroke();
+  // legs
+  ctx.strokeStyle = col; ctx.lineWidth = 3.6;
+  ctx.beginPath();
+  ctx.moveTo(x-4, y+13+bob); ctx.lineTo(x-5+step*3.5, y+21+bob);
+  ctx.moveTo(x+4, y+13+bob); ctx.lineTo(x+5-step*3.5, y+21+bob);
+  ctx.stroke();
+
+  if(verified){
+    // verified checkmark on chest
+    ctx.strokeStyle='#0a1428'; ctx.lineWidth=2.4; ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(x-3, y+3+bob); ctx.lineTo(x, y+6+bob); ctx.lineTo(x+4, y+1+bob);
+    ctx.stroke();
+  }
+}
+
+/* Draw a hostile robot bot — bigger, angrier, with a ticket-thief claw. */
+function drawBot(ctx, x, y, t, variant, damaged){
+  const flick = 0.85 + 0.15*Math.sin(t*20);
+  const legPhase = t*11;
+  const step = Math.sin(legPhase);
+  // small jitter for "unstable bot" feel
+  const jitter = CFG.REDUCED_MOTION ? 0 : (Math.random()<0.05 ? rand(-0.6, 0.6) : 0);
+  const jy = CFG.REDUCED_MOTION ? 0 : (Math.random()<0.05 ? rand(-0.6, 0.6) : 0);
+  x += jitter; y += jy;
+
+  const s = variant==='farm'? 1.55 : (variant==='swarm'?0.85: (variant==='burst'?0.95: (variant==='proxy'?1.1:1.1)));
+
+  // ground shadow
+  ctx.fillStyle='rgba(0,0,0,.45)';
+  ctx.beginPath(); ctx.ellipse(x, y+20, 13*s, 4, 0, 0, Math.PI*2); ctx.fill();
+
+  // heat glow — proxy uses orange, others red
+  ctx.save();
+  ctx.globalAlpha=.4*flick;
+  const glowCol = variant==='proxy' ? 'rgba(255,138,59,.75)' : 'rgba(255,60,90,.7)';
+  const g = ctx.createRadialGradient(x,y,2,x,y,22*s);
+  g.addColorStop(0, glowCol); g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g;
+  ctx.beginPath(); ctx.arc(x, y, 22*s, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // Proxy routing arrows behind — glitch trail
+  if(variant==='proxy' && !CFG.REDUCED_MOTION){
+    ctx.save();
+    ctx.globalAlpha=.35;
+    ctx.strokeStyle=COLORS.bot2; ctx.lineWidth=1.6; ctx.lineCap='round';
+    for(let i=1;i<=3;i++){
+      const ox = -i*8;
+      ctx.beginPath();
+      ctx.moveTo(x+ox-3, y-2); ctx.lineTo(x+ox+3, y+2);
+      ctx.moveTo(x+ox-3, y+2); ctx.lineTo(x+ox+3, y-2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Farm hive: cluster of tiny bot dots on top of the chassis
+  if(variant==='farm'){
+    ctx.save();
+    for(let i=0;i<5;i++){
+      const a = i*0.7 + t*0.5;
+      const rx = x + Math.cos(a)*10;
+      const ry = y - 8 + Math.sin(a)*4;
+      ctx.fillStyle = i%2 ? '#ffd23f' : '#ff8a3b';
+      ctx.beginPath(); ctx.arc(rx, ry, 1.6, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // spider legs (4)
+  ctx.strokeStyle='#8a0f22'; ctx.lineWidth=2.8; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(x-5*s, y+8); ctx.lineTo(x-12*s-step*3, y+19);
+  ctx.moveTo(x+5*s, y+8); ctx.lineTo(x+12*s+step*3, y+19);
+  ctx.moveTo(x-5*s, y+10); ctx.lineTo(x-14*s+step*2, y+19);
+  ctx.moveTo(x+5*s, y+10); ctx.lineTo(x+14*s-step*2, y+19);
+  ctx.stroke();
+
+  // body — angular chassis (bigger)
+  const bodyCol =
+        variant==='swarm' ? '#ff6b7d'
+      : variant==='burst' ? '#ff2a3f'
+      : variant==='farm'  ? '#c02248'
+      : variant==='proxy' ? '#ff8a3b'
+      : COLORS.bot;
+  ctx.fillStyle = bodyCol;
+  ctx.beginPath();
+  ctx.moveTo(x-11*s, y-3);
+  ctx.lineTo(x-7*s, y-13);
+  ctx.lineTo(x+7*s, y-13);
+  ctx.lineTo(x+11*s, y-3);
+  ctx.lineTo(x+8*s, y+10);
+  ctx.lineTo(x-8*s, y+10);
+  ctx.closePath();
+  ctx.fill();
+
+  // chest plate highlight
+  ctx.fillStyle='rgba(255,255,255,.14)';
+  ctx.beginPath();
+  ctx.moveTo(x-7*s, y-11); ctx.lineTo(x+7*s, y-11); ctx.lineTo(x+5*s, y-4); ctx.lineTo(x-5*s, y-4);
+  ctx.closePath(); ctx.fill();
+
+  // rivets
+  ctx.fillStyle='rgba(0,0,0,.4)';
+  ctx.fillRect(x-8*s, y+3, 2, 2);
+  ctx.fillRect(x+6*s, y+3, 2, 2);
+
+  // eye visor (angry brow)
+  ctx.fillStyle='#1a0208';
+  roundRect(ctx, x-8*s, y-8, 16*s, 5, 2, true, false);
+  // two angry eyes
+  ctx.fillStyle='#ffd23f';
+  ctx.globalAlpha=flick;
+  ctx.fillRect(x-5*s, y-6, 3, 3);
+  ctx.fillRect(x+2*s, y-6, 3, 3);
+  ctx.globalAlpha=1;
+  // angry brow slashes
+  ctx.strokeStyle='#1a0208'; ctx.lineWidth=1.6;
+  ctx.beginPath();
+  ctx.moveTo(x-7*s, y-10); ctx.lineTo(x-3*s, y-8);
+  ctx.moveTo(x+7*s, y-10); ctx.lineTo(x+3*s, y-8);
+  ctx.stroke();
+
+  // antenna with red bulb
+  ctx.strokeStyle=variant==='burst'?'#ff2a3f':'#ff7288'; ctx.lineWidth=1.8;
+  ctx.beginPath(); ctx.moveTo(x, y-13); ctx.lineTo(x, y-19); ctx.stroke();
+  ctx.fillStyle=variant==='burst' ? '#ffef7a' : COLORS.bot2;
+  ctx.beginPath(); ctx.arc(x, y-20, 2.2, 0, Math.PI*2); ctx.fill();
+
+  // stolen-ticket claw at the front (right side, facing vault)
+  ctx.save();
+  ctx.translate(x + 9*s, y + 1);
+  // claw arm
+  ctx.strokeStyle='#8a0f22'; ctx.lineWidth=2.2;
+  ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(7, -1); ctx.stroke();
+  // pincer
+  ctx.fillStyle='#8a0f22';
+  ctx.beginPath(); ctx.moveTo(6, -4); ctx.lineTo(11, -2); ctx.lineTo(6, 0); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(6, 4); ctx.lineTo(11, 2); ctx.lineTo(6, 0); ctx.closePath(); ctx.fill();
+  // tiny gold ticket sliver in the claw
+  ctx.fillStyle=COLORS.vault;
+  ctx.fillRect(7, -1, 4, 2);
+  ctx.restore();
+
+  if(damaged){
+    ctx.strokeStyle='rgba(255,255,255,.8)';
+    ctx.lineWidth=1.4;
+    ctx.beginPath();
+    ctx.moveTo(x-5*s, y-2); ctx.lineTo(x+4*s, y+4);
+    ctx.moveTo(x+3*s, y-4); ctx.lineTo(x-3*s, y+5);
+    ctx.stroke();
+  }
+}
+
+/* Draw ATO bot in disguise — bigger fan silhouette with subtle glitch tells. */
+function drawATODisguise(ctx, x, y, t){
+  const bob = Math.sin(t*7)*2.2;
+  const step = Math.sin(t*7);
+  // Rare glitch tell — flicker every ~1s, brief outline distortion
+  const glitch = Math.sin(t*3.2) > 0.86;
+  const eyeFlash = Math.sin(t*11) > 0.94;
+  const col = COLORS.disguise;
+  const dark = '#0a1428';
+
+  // ground shadow
+  ctx.fillStyle='rgba(0,0,0,.4)';
+  ctx.beginPath(); ctx.ellipse(x, y+22, 13, 4, 0, 0, Math.PI*2); ctx.fill();
+
+  // brief red aura when glitching
+  if(glitch){
+    ctx.save();
+    ctx.globalAlpha=.35;
+    const g = ctx.createRadialGradient(x, y+bob, 2, x, y+bob, 22);
+    g.addColorStop(0,'rgba(255,60,90,.55)'); g.addColorStop(1,'rgba(255,60,90,0)');
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(x, y+bob, 22, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  // body
+  ctx.fillStyle = col;
+  // outline distortion during glitch — slight offset
+  const dx = glitch ? 0.8 : 0;
+  roundRect(ctx, x-8+dx, y-4+bob, 16, 18, 4, true, false);
+
+  // torso highlight
+  ctx.fillStyle='rgba(255,255,255,.2)';
+  roundRect(ctx, x-6, y-2+bob, 4, 8, 2, true, false);
+
+  // head
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(x-dx, y-12+bob, 7, 0, Math.PI*2); ctx.fill();
+
+  // eyes — one occasionally flashes red (tell)
+  ctx.fillStyle=dark;
+  ctx.fillRect(x-3, y-13+bob, 2, 2);
+  if(eyeFlash){ ctx.fillStyle='#ff2a55'; ctx.fillRect(x+1, y-13+bob, 2, 2); }
+  else{ ctx.fillStyle=dark; ctx.fillRect(x+1, y-13+bob, 2, 2); }
+
+  // arms
+  ctx.strokeStyle = col; ctx.lineWidth = 3.6; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(x-8, y-1+bob); ctx.lineTo(x-12-step*3.5, y+7+bob);
+  ctx.moveTo(x+8, y-1+bob); ctx.lineTo(x+12+step*3.5, y+7+bob);
+  ctx.stroke();
+  // legs
+  ctx.beginPath();
+  ctx.moveTo(x-4, y+13+bob); ctx.lineTo(x-5+step*3.5, y+21+bob);
+  ctx.moveTo(x+4, y+13+bob); ctx.lineTo(x+5-step*3.5, y+21+bob);
+  ctx.stroke();
+
+  // glitch pixel scatter
+  if(glitch){
+    ctx.fillStyle='#ff2a55';
+    ctx.fillRect(x+3, y-2+bob, 2, 2);
+    ctx.fillRect(x-5, y+2+bob, 1, 1);
+    ctx.fillRect(x-1, y+7+bob, 1, 1);
+    // scan line
+    ctx.globalAlpha=.5;
+    ctx.fillStyle='rgba(255,60,90,.6)';
+    ctx.fillRect(x-8, y-2+bob, 16, 1);
+    ctx.globalAlpha=1;
+  }
+}
+
+/* Rounded rect utility. */
+/* Small angry mini-bot (spawned from ID Farm). */
+function drawMiniBot(ctx, x, y, t, damaged){
+  const flick = 0.85 + 0.15*Math.sin(t*22);
+  const step = Math.sin(t*12);
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,.35)';
+  ctx.beginPath(); ctx.ellipse(x, y+13, 8, 3, 0, 0, Math.PI*2); ctx.fill();
+  // legs
+  ctx.strokeStyle='#8a0f22'; ctx.lineWidth=1.8; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(x-3, y+5); ctx.lineTo(x-7-step*2, y+11);
+  ctx.moveTo(x+3, y+5); ctx.lineTo(x+7+step*2, y+11);
+  ctx.stroke();
+  // body
+  ctx.fillStyle = '#ff5566';
+  ctx.beginPath();
+  ctx.moveTo(x-7, y-1);
+  ctx.lineTo(x-4, y-7);
+  ctx.lineTo(x+4, y-7);
+  ctx.lineTo(x+7, y-1);
+  ctx.lineTo(x+5, y+5);
+  ctx.lineTo(x-5, y+5);
+  ctx.closePath(); ctx.fill();
+  // visor
+  ctx.fillStyle='#1a0208';
+  roundRect(ctx, x-5, y-4, 10, 3, 1.2, true, false);
+  ctx.fillStyle='#ffd23f';
+  ctx.globalAlpha=flick;
+  ctx.fillRect(x-1, y-3, 2, 2);
+  ctx.globalAlpha=1;
+  // tiny antenna
+  ctx.strokeStyle='#ff7288'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(x, y-7); ctx.lineTo(x, y-10); ctx.stroke();
+  ctx.fillStyle=COLORS.bot2;
+  ctx.beginPath(); ctx.arc(x, y-11, 1.4, 0, Math.PI*2); ctx.fill();
+  if(damaged){
+    ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x-3, y-1); ctx.lineTo(x+3, y+2); ctx.stroke();
+  }
+}
+
+/* Ultra-fast Rush/Burst bot with speed trail. */
+function drawBurstBot(ctx, x, y, t, damaged){
+  // motion trail — long, streaky
+  if(!CFG.REDUCED_MOTION){
+    ctx.save();
+    for(let i=1;i<=3;i++){
+      ctx.globalAlpha = 0.28/i;
+      ctx.fillStyle = '#ff2a3f';
+      ctx.beginPath(); ctx.ellipse(x - i*10, y, 10-i*2, 5-i*1.2, 0, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+  // Use standard bot draw with 'burst' variant palette
+  drawBot(ctx, x, y, t, 'burst', damaged);
+  // extra speed lines at the front
+  ctx.save();
+  ctx.globalAlpha = 0.6 + 0.35*Math.sin(t*30);
+  ctx.strokeStyle = '#ffef7a';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x+12, y-6); ctx.lineTo(x+22, y-6);
+  ctx.moveTo(x+12, y  ); ctx.lineTo(x+26, y  );
+  ctx.moveTo(x+12, y+6); ctx.lineTo(x+22, y+6);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r, fill, stroke){
+  if(w<2*r) r = w/2;
+  if(h<2*r) r = h/2;
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y,   x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x,   y+h, r);
+  ctx.arcTo(x,   y+h, x,   y,   r);
+  ctx.arcTo(x,   y,   x+w, y,   r);
+  ctx.closePath();
+  if(fill) ctx.fill();
+  if(stroke) ctx.stroke();
+}
+
+/* Draw a tower icon (used on canvas and inside the panel buttons). */
+function drawTowerIcon(ctx, cx, cy, key, level=1, t=0, size=1){
+  const s = size;
+  ctx.save();
+  ctx.translate(cx,cy);
+  // base pedestal
+  ctx.fillStyle='#0a1226';
+  roundRect(ctx, -14*s, 8*s, 28*s, 6*s, 2, true, false);
+  ctx.strokeStyle='#233d70'; ctx.lineWidth=1;
+  roundRect(ctx, -14*s, 8*s, 28*s, 6*s, 2, false, true);
+
+  switch(key){
+    case 'captcha':{
+      // octagonal turret + barrel
+      ctx.fillStyle=COLORS.captcha;
+      ctx.beginPath();
+      const r=10*s;
+      for(let i=0;i<8;i++){
+        const a=Math.PI/8 + i*Math.PI/4;
+        const px=Math.cos(a)*r, py=Math.sin(a)*r - 2*s;
+        i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#0a1428';
+      ctx.fillRect(-3*s, -8*s, 6*s, 6*s);
+      // barrel
+      ctx.fillStyle='#3a1d05';
+      ctx.fillRect(-2*s, -14*s, 4*s, 8*s);
+      ctx.fillStyle=COLORS.captcha;
+      ctx.fillRect(-2*s, -14*s, 4*s, 2*s);
+      // level dots
+      drawLevelPips(ctx, 0, 12*s, level);
+      break;
+    }
+    case 'shield':{
+      // hex shield with check
+      ctx.fillStyle=COLORS.shield;
+      const r=11*s;
+      ctx.beginPath();
+      for(let i=0;i<6;i++){
+        const a=Math.PI/2 + i*Math.PI/3;
+        const px=Math.cos(a)*r, py=Math.sin(a)*r - 2*s;
+        i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle='#0a1428'; ctx.lineWidth=2.2*s; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(-4*s, -2*s); ctx.lineTo(-1*s, 2*s); ctx.lineTo(5*s, -4*s);
+      ctx.stroke();
+      drawLevelPips(ctx, 0, 12*s, level);
+      break;
+    }
+    case 'scanner':{
+      // scanner ring + crosshair, pulsing sweep line
+      ctx.strokeStyle=COLORS.scanner; ctx.lineWidth=2*s;
+      ctx.beginPath(); ctx.arc(0,-2*s, 10*s, 0, Math.PI*2); ctx.stroke();
+      ctx.strokeStyle='rgba(77,224,193,.35)';
+      ctx.beginPath(); ctx.arc(0,-2*s, 6*s, 0, Math.PI*2); ctx.stroke();
+      // sweep line
+      ctx.save();
+      ctx.rotate((t*2) % (Math.PI*2));
+      ctx.strokeStyle=COLORS.scanner;
+      ctx.beginPath(); ctx.moveTo(0,-2*s); ctx.lineTo(10*s,-2*s); ctx.stroke();
+      ctx.restore();
+      drawLevelPips(ctx, 0, 12*s, level);
+      break;
+    }
+    case 'wall':{
+      // gate posts + pulsing field
+      ctx.fillStyle=COLORS.wall;
+      ctx.fillRect(-10*s, -12*s, 4*s, 20*s);
+      ctx.fillRect(6*s, -12*s, 4*s, 20*s);
+      ctx.fillStyle='rgba(255,138,59,.5)';
+      const p = 0.5 + 0.5*Math.sin(t*4);
+      ctx.globalAlpha = 0.35 + 0.35*p;
+      ctx.fillRect(-6*s, -10*s + p*2, 12*s, 16*s);
+      ctx.globalAlpha=1;
+      drawLevelPips(ctx, 0, 12*s, level);
+      break;
+    }
+    case 'velocity':{
+      // triangular tesla; sparks at top
+      ctx.fillStyle=COLORS.velocity;
+      ctx.beginPath();
+      ctx.moveTo(0,-14*s); ctx.lineTo(10*s,8*s); ctx.lineTo(-10*s,8*s); ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle='#0a1428';
+      ctx.fillRect(-2*s, -4*s, 4*s, 6*s);
+      // sparks
+      ctx.strokeStyle='#e0c3ff'; ctx.lineWidth=1.4*s;
+      const sp = Math.sin(t*15);
+      ctx.beginPath();
+      ctx.moveTo(0,-14*s); ctx.lineTo(3*s + sp*2, -18*s);
+      ctx.moveTo(0,-14*s); ctx.lineTo(-3*s - sp*2, -18*s);
+      ctx.stroke();
+      drawLevelPips(ctx, 0, 12*s, level);
+      break;
+    }
+    case 'resale':{
+      // coin+eye ticker
+      ctx.fillStyle=COLORS.resale;
+      ctx.beginPath(); ctx.arc(0,-2*s, 10*s, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#3a2a00';
+      ctx.beginPath(); ctx.arc(0,-2*s, 5*s, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle=COLORS.resale;
+      ctx.fillRect(-1*s, -8*s, 2*s, 12*s);
+      // wing marks
+      ctx.strokeStyle='#3a2a00'; ctx.lineWidth=1.4*s;
+      ctx.beginPath();
+      ctx.arc(0,-2*s, 10*s, -Math.PI*0.9, -Math.PI*0.1);
+      ctx.stroke();
+      drawLevelPips(ctx, 0, 12*s, level);
+      break;
+    }
+    case 'drone':{
+      // hovering drone
+      ctx.fillStyle=COLORS.drone;
+      roundRect(ctx, -10*s, -4*s, 20*s, 8*s, 3, true, false);
+      // rotors
+      ctx.strokeStyle='#dbe4ff'; ctx.lineWidth=1.4*s;
+      const wob = Math.sin(t*20)*2;
+      ctx.beginPath();
+      ctx.moveTo(-14*s, -6*s+wob); ctx.lineTo(-6*s, -6*s-wob);
+      ctx.moveTo(6*s, -6*s+wob); ctx.lineTo(14*s, -6*s-wob);
+      ctx.stroke();
+      // eye
+      ctx.fillStyle='#0a1428';
+      ctx.fillRect(-3*s, -1*s, 6*s, 2*s);
+      ctx.fillStyle=COLORS.captcha;
+      ctx.fillRect(-1*s, 0, 2*s, 1*s);
+      drawLevelPips(ctx, 0, 12*s, level);
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+function drawLevelPips(ctx, cx, cy, level){
+  for(let i=0;i<3;i++){
+    ctx.fillStyle = i<level ? COLORS.captcha : '#233d70';
+    ctx.fillRect(cx-6 + i*5, cy+1, 3, 2);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * [9] LAYOUT — canvas sizing, lane rects, placement cells
+ * ------------------------------------------------------------------------- */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const canvasWrap = document.getElementById('canvas-wrap');
+let cssW=0, cssH=0, dpr=1, scaleX=1, scaleY=1;
+
+function resize(){
+  const rect = canvasWrap.getBoundingClientRect();
+  cssW = Math.max(300, rect.width);
+  cssH = Math.max(300, rect.height);
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width  = Math.floor(cssW * dpr);
+  canvas.height = Math.floor(cssH * dpr);
+  canvas.style.width = cssW+'px';
+  canvas.style.height = cssH+'px';
+  // Scale so DESIGN_W maps to cssW
+  scaleX = cssW / CFG.DESIGN_W;
+  scaleY = cssH / CFG.DESIGN_H;
+}
+window.addEventListener('resize', resize);
+
+function initLanes(){
+  GS.lanes = [];
+  for(let i=0;i<CFG.LANES;i++){
+    const y = laneY(i);
+    const h = laneHeight()-8;
+    GS.lanes.push({index:i, y, top:y-h/2, bottom:y+h/2, height:h});
+  }
+}
+
+/* Placement cells: two rows of cells per lane (above and below the lane path). */
+function initCells(){
+  GS.cells = [];
+  const cellW = 70, cellH = 46, gap = 6;
+  const colStart = CFG.LANE_LEFT + 90;
+  const colEnd = CFG.LANE_RIGHT - 60;
+  const cols = Math.floor((colEnd - colStart) / (cellW+gap));
+  for(let i=0;i<CFG.LANES;i++){
+    const y = laneY(i);
+    const laneH = laneHeight();
+    // top row
+    const yt = y - laneH/2 - 4 - cellH;
+    const yb = y + laneH/2 + 4;
+    // Only bottom row for the last lane extra? No — both rows always. First lane top row may be tight.
+    for(let c=0;c<cols;c++){
+      const x = colStart + c*(cellW+gap);
+      // Top row cell (relative to this lane) — but keep them inside canvas.
+      if(yt > CFG.LANE_TOP - 60){
+        GS.cells.push({x, y:yt, w:cellW, h:cellH, lane:i, occupied:false});
+      }
+      // Bottom row cell — for the last lane, this is inside the vault margin; keep only if room.
+      if(yb + cellH < CFG.DESIGN_H - 20){
+        GS.cells.push({x, y:yb, w:cellW, h:cellH, lane:i, occupied:false});
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * [10] INPUT — mouse + touch + keyboard
+ * ------------------------------------------------------------------------- */
+function pointerFromEvent(e){
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.clientX ?? (e.touches && e.touches[0]?.clientX) ?? 0;
+  const clientY = e.clientY ?? (e.touches && e.touches[0]?.clientY) ?? 0;
+  const px = (clientX - rect.left) / rect.width  * CFG.DESIGN_W;
+  const py = (clientY - rect.top ) / rect.height * CFG.DESIGN_H;
+  return {x:px, y:py};
+}
+
+function findCellAt(x,y){
+  for(const c of GS.cells){
+    if(x>=c.x && x<=c.x+c.w && y>=c.y && y<=c.y+c.h) return c;
+  }
+  return null;
+}
+function findTowerAt(x,y){
+  for(const t of GS.towers){
+    if(dist2(x,y,t.x,t.y) < 22*22) return t;
+  }
+  return null;
+}
+
+function onPointerMove(e){
+  const p = pointerFromEvent(e);
+  GS.pointer.x = p.x; GS.pointer.y = p.y; GS.pointer.over = true;
+  if(GS.selectedTowerType){
+    GS.hoverCell = findCellAt(p.x,p.y);
+  } else {
+    GS.hoverCell = null;
+  }
+}
+function onPointerLeave(){ GS.pointer.over = false; GS.hoverCell = null; }
+
+function onPointerDown(e){
+  unlockAudio();
+  e.preventDefault();
+  const p = pointerFromEvent(e);
+  GS.pointer.x = p.x; GS.pointer.y = p.y; GS.pointer.over = true;
+
+  // Attempt: click existing tower for context menu
+  const t = findTowerAt(p.x, p.y);
+  if(t && !GS.selectedTowerType){
+    selectPlacedTower(t);
+    return;
+  }
+
+  // Attempt: place selected tower
+  if(GS.selectedTowerType){
+    const cell = findCellAt(p.x, p.y);
+    if(cell && !cell.occupied && GS.credits >= TOWERS[GS.selectedTowerType].cost[0]){
+      placeTower(GS.selectedTowerType, cell);
+    } else {
+      // flash invalid
+      GS.invalidFlash = 0.35;
+      GS.invalidPt = {x:p.x, y:p.y};
+    }
+    return;
+  }
+  // Otherwise, close ctx menu
+  hideCtxMenu();
+}
+canvas.addEventListener('mousemove', onPointerMove);
+canvas.addEventListener('mouseleave', onPointerLeave);
+canvas.addEventListener('mousedown', onPointerDown);
+canvas.addEventListener('touchstart', (e)=>{ onPointerDown(e); }, {passive:false});
+canvas.addEventListener('touchmove',  (e)=>{ onPointerMove(e); e.preventDefault(); }, {passive:false});
+canvas.addEventListener('touchend',   ()=>{ GS.hoverCell = null; });
+
+/* Keyboard shortcuts: 1..7 select towers, Esc deselect, Space start wave */
+window.addEventListener('keydown',(e)=>{
+  if(e.key >= '1' && e.key <= '7'){
+    const k = TOWER_ORDER[parseInt(e.key,10)-1];
+    if(k) selectTowerType(k);
+  } else if(e.key === 'Escape'){
+    GS.selectedTowerType = null;
+    hideCtxMenu();
+    syncPanel();
+  } else if(e.key === ' ' || e.key === 'Enter'){
+    if(GS.mode==='menu'){ startGame(); }
+    else if(!GS.waveRunning && GS.mode==='playing'){ startWave(); }
+  }
+});
+
+/* ---------------------------------------------------------------------------
+ * [11] SIM — spawn / movement / targeting / damage
+ * ------------------------------------------------------------------------- */
+function spawnEntity(type, laneIdx){
+  const base = UNIT[type];
+  if(!base) return;
+  const y = laneY(laneIdx);
+  // Teaching cues (one-shot per game) — schedule via game-time deferred queue.
+  if(type==='fan' && !GS.cues.firstFan){
+    GS.cues.firstFan = true;
+    GS.deferred.push({ at: GS.time + 0.35, fn: () => {
+      const fan = GS.entities.find(x => x.type==='fan' && x.alive);
+      if(fan) showFloaty(fan.x, fan.y-30, 'LET FANS THROUGH', COLORS.fanVerified);
+    }});
+  }
+  if((type==='bot' || type==='swarm' || type==='burst' || type==='proxy' || type==='farm') && !GS.cues.firstBot){
+    GS.cues.firstBot = true;
+    GS.deferred.push({ at: GS.time + 0.35, fn: () => {
+      const bot = GS.entities.find(x => x.kind==='bot' && x.alive);
+      if(bot) showFloaty(bot.x, bot.y-30, 'BUST BOTS!', COLORS.bad);
+    }});
+  }
+  // Venue speed modifier (bots only)
+  const speedMult = base.kind === 'bot' ? (GS.modifier?.botSpeedMult ?? 1.0) : 1.0;
+  const spd = base.speed * speedMult;
+  const e = {
+    id:Math.random(),
+    type,
+    kind: base.kind,
+    lane: laneIdx,
+    x: -20, y,
+    hp: base.hp, maxHp:base.hp,
+    speed: spd,
+    baseSpeed: spd,
+    radius: base.radius,
+    damage: base.damage,
+    disguised: !!base.disguised,
+    revealed: false,
+    slowUntil:0, slowFactor:1,
+    stunUntil:0,
+    verified:false,
+    verifiedUntil:0,
+    canSwitchLane: !!base.canSwitchLane,
+    nextSwitchAt: base.canSwitchLane ? GS.time+2.0+Math.random()*1.5 : 0,
+    jumpTellAt: 0, jumpFireAt: 0, jumpTargetLane: undefined,
+    splitsInto: base.splitsInto,
+    hitFlash:0,
+    alive:true,
+  };
+  GS.entities.push(e);
+}
+
+/* Enqueue a spawn at a specific wave-elapsed time. Unified spawn queue. */
+function enqueueSpawn(t, type, lane){
+  GS.spawnQueue.push({ t, type, lane });
+}
+
+/* Expand a group into individual scheduled spawns in the shared queue. */
+function enqueueGroup(t0, group){
+  const count = group.count || 4;
+  const spacing = group.spacing ?? 0.35;
+  const lane = group.lane;
+  for(let i=0;i<count;i++){
+    enqueueSpawn(t0 + i*spacing, group.type, lane);
+  }
+}
+
+function startWave(){
+  if(GS.waveRunning) return;
+  const w = WAVES[GS.waveIdx];
+  if(!w) return;
+  GS.waveRunning = true;
+  GS.waveElapsed = 0;
+  GS.waveHadLeak = false;
+  // Flatten wave spawns into a single game-time queue. Groups become N staggered spawns.
+  GS.spawnQueue = [];
+  for(const s of w.spawns){
+    if(s.group){
+      enqueueGroup(s.t, s.group);
+    } else {
+      enqueueSpawn(s.t, s.type, s.lane);
+    }
+  }
+  // Sort by time so consumption is a simple linear scan.
+  GS.spawnQueue.sort((a,b) => a.t - b.t);
+  GS.stats.waveReached = w.num;
+  // Deferred queue is reset per wave.
+  GS.deferred = GS.deferred || [];
+  showBanner(w);
+  updateUI();
+  sfxWaveStart();
+  // Wave-specific hint cues — scheduled via game-time deferred queue.
+  if(w.num === 3 && !GS.towers.some(t => t.key === 'scanner')){
+    GS.deferred.push({ at: GS.time + 0.8, fn: () => {
+      if(GS.mode !== 'playing') return;
+      const y = laneY(0) - 24;
+      showFloaty(CFG.LANE_LEFT + 260, y, 'Scanner needed!', COLORS.scanner, 3.5);
+      showFloaty(CFG.LANE_LEFT + 260, y + 18, 'Tap 3 → place near a lane', COLORS.scanner, 3.5);
+    }});
+  }
+  if(w.num === 4){
+    GS.deferred.push({ at: GS.time + 0.6, fn: () => {
+      if(GS.mode !== 'playing') return;
+      showFloaty(CFG.LANE_LEFT + 260, laneY(0) - 24, 'Proxy bots can jump lanes!', COLORS.bot2, 3.2);
+      showFloaty(CFG.LANE_LEFT + 260, laneY(0) - 6, 'Slow or stun them before they dodge.', COLORS.bot2, 3.2);
+    }});
+  }
+  if(w.num === 5){
+    GS.deferred.push({ at: GS.time + 0.6, fn: () => {
+      if(GS.mode !== 'playing') return;
+      showFloaty(CFG.LANE_LEFT + 260, laneY(0) - 24, 'ID Farms split when destroyed!', COLORS.violet, 3.2);
+      showFloaty(CFG.LANE_LEFT + 260, laneY(0) - 6, 'Control the split with Wall or Drone.', COLORS.violet, 3.2);
+    }});
+  }
+  if(w.num === 6){
+    GS.deferred.push({ at: GS.time + 0.6, fn: () => {
+      if(GS.mode !== 'playing') return;
+      showFloaty(CFG.DESIGN_W*0.5, laneY(0) - 24, 'LAST-SECOND RUSH!', COLORS.bad, 3.0);
+      showFloaty(CFG.DESIGN_W*0.5, laneY(0) - 4, 'Velocity Trap counters fast bots.', COLORS.velocity, 3.0);
+    }});
+  }
+}
+
+/* Advance spawn queue against elapsed wave time. All timing is game-time driven. */
+function tickSpawns(dt){
+  if(!GS.waveRunning) return;
+  GS.waveElapsed += dt;
+  // Consume everything due (queue is time-sorted; use shift-loop).
+  while(GS.spawnQueue.length && GS.spawnQueue[0].t <= GS.waveElapsed){
+    const s = GS.spawnQueue.shift();
+    spawnEntity(s.type, s.lane);
+  }
+  // Wave complete only when: no scheduled spawns remain, no hostile entities on field,
+  // and no pending farm-split-later events remain.
+  if(GS.spawnQueue.length === 0){
+    const bots = GS.entities.filter(e => e.kind==='bot').length;
+    const pendingSplits = (GS.pendingSpawns || []).length;
+    if(bots === 0 && pendingSplits === 0){
+      completeWave();
+      return;
+    }
+    // Watchdog: if we've been past the last scheduled spawn for a long time and every
+    // remaining hostile is stunned, un-stun them so the wave can conclude.
+    const lastT = WAVES[GS.waveIdx]?.spawns.at(-1)?.t ?? 0;
+    if(GS.waveElapsed > lastT + 30){
+      for(const e of GS.entities){
+        if(e.kind==='bot' && e.stunUntil > GS.time) e.stunUntil = GS.time;
+      }
+    }
+  }
+}
+
+/* Process any game-time deferred callbacks (cues, split spawns, etc.). */
+function tickDeferred(){
+  if(!GS.deferred || !GS.deferred.length) return;
+  for(let i=GS.deferred.length-1; i>=0; i--){
+    const d = GS.deferred[i];
+    if(GS.time >= d.at){
+      d.fn();
+      GS.deferred.splice(i,1);
+    }
+  }
+}
+
+/* Process any scheduled sub-spawns (e.g. ID farm splits). */
+function tickPendingSpawns(){
+  if(!GS.pendingSpawns || !GS.pendingSpawns.length) return;
+  for(let i=GS.pendingSpawns.length-1; i>=0; i--){
+    const p = GS.pendingSpawns[i];
+    if(GS.time >= p.at){
+      const e = spawnEntityAt(p.type, p.lane, p.x, p.y);
+      // Give a small outward push so minis fan out
+      if(e && p.vx !== undefined) e.__scatterVx = p.vx;
+      GS.pendingSpawns.splice(i,1);
+    }
+  }
+}
+
+/* Spawn an entity at a specific screen position (used for ID farm splits). */
+function spawnEntityAt(type, laneIdx, x, y){
+  spawnEntity(type, laneIdx);
+  const e = GS.entities[GS.entities.length-1];
+  if(e){ e.x = x; e.y = y; }
+  return e;
+}
+
+/* ---- Combo / streak helpers ---- */
+function comboTier(count){
+  for(const t of CFG.COMBO_TIERS){ if(count >= t.min) return t; }
+  return CFG.COMBO_TIERS[CFG.COMBO_TIERS.length-1];
+}
+function activeVenue(){ return VENUES[GS.venueKey] || VENUES.truetix; }
+function scoreMult(){ return (GS.modifier?.scoreMult ?? 1.0); }
+function comboBuildBoost(){ return (GS.modifier?.comboBuildBoost ?? 0); }
+
+function comboIncrement(){
+  const boost = 1 + comboBuildBoost(); // 1 or 2 kills per kill on Neon
+  GS.combo.count += boost;
+  const prevMult = GS.combo.mult;
+  const tier = comboTier(GS.combo.count);
+  GS.combo.mult = tier.mult;
+  GS.combo.lastKillAt = GS.time;
+  GS.combo.pulse = 1;
+  if(GS.combo.count > GS.stats.highestCombo) GS.stats.highestCombo = GS.combo.count;
+  if(tier.mult > GS.stats.maxMult) GS.stats.maxMult = tier.mult;
+  if(tier.mult > prevMult){
+    // First time we hit x2, teach the rule once.
+    if(tier.mult === 2 && !GS.cues.firstCombo){
+      GS.cues.firstCombo = true;
+      showFloaty(CFG.DESIGN_W*0.5, 90, `COMBO x2 — don't leak bots!`, COLORS.captcha, 2.2);
+    } else {
+      showFloaty(CFG.DESIGN_W*0.5, 90, `${tier.label} COMBO UP!`, COLORS.captcha, 1.4);
+    }
+    pulseComboHud();
+  }
+}
+function comboBreak(reason){
+  if(GS.combo.count <= 0) return;
+  const wasAt = GS.combo.count;
+  GS.combo.count = 0;
+  GS.combo.mult = 1;
+  GS.combo.breakAt = GS.time;
+  if(wasAt >= 3){
+    // Teach the break rule once with an explicit reason.
+    if(!GS.cues.firstBreak){
+      GS.cues.firstBreak = true;
+      const why = reason==='leak' ? 'bot leaked' : 'fan harmed';
+      showFloaty(CFG.DESIGN_W*0.5, 90, `COMBO BROKEN — ${why}`, COLORS.bad, 1.8);
+    } else {
+      showFloaty(CFG.DESIGN_W*0.5, 90, 'COMBO BROKEN', COLORS.bad, 1.2);
+    }
+  }
+}
+
+function completeWave(){
+  const w = WAVES[GS.waveIdx];
+  GS.credits += w.reward;
+  const sMult = scoreMult();
+  const waveScore = Math.round(200 * w.num * sMult);
+  GS.score += waveScore;
+  GS.breakdown.waveClearBase += waveScore;
+  // Clean entry bonus for waves where no bot leaked to the vault
+  if(!GS.waveHadLeak){
+    const clean = Math.round(CFG.CLEAN_ENTRY_BONUS_PER_WAVE * sMult);
+    GS.score += clean;
+    GS.breakdown.cleanEntry += clean;
+    showFloaty(CFG.DESIGN_W*0.5, CFG.DESIGN_H*0.45, `CLEAN ENTRY  +${clean}`, COLORS.fanVerified, 2.2);
+  }
+  GS.waveHadLeak = false;
+  GS.waveRunning = false;
+  // Resale Monitor passive trickle at wave clear — one per monitor, scales with level.
+  let trickleTotal = 0;
+  for(const tt of GS.towers){
+    if(tt.key === 'resale'){
+      trickleTotal += TOWERS.resale.tickTrickle[tt.level-1];
+    }
+  }
+  if(trickleTotal > 0){
+    GS.credits += trickleTotal;
+    showFloaty(180, 90, `+$${trickleTotal} Resale trickle`, COLORS.resale, 2.0);
+  }
+  // Big, persistent wave-clear celebration in the center of the field
+  const cx = CFG.DESIGN_W * 0.5;
+  const cy = CFG.DESIGN_H * 0.35;
+  showFloaty(cx, cy, `WAVE ${w.num} CLEAR!`, COLORS.spawn, 2.4);
+  showFloaty(cx, cy + 22, `+$${w.reward}`, COLORS.vault, 2.4);
+  // celebration burst at vault
+  for(let i=0;i<16;i++){
+    const a = Math.random()*Math.PI*2;
+    GS.particles.push({
+      x: CFG.VAULT_X - 20, y: (CFG.LANE_TOP+CFG.LANE_BOTTOM)/2,
+      vx: Math.cos(a)*rand(60,180), vy: Math.sin(a)*rand(60,180),
+      life:.6+Math.random()*.4, color: i%2? COLORS.vault : COLORS.fanVerified, size:rand(2,3)
+    });
+  }
+  GS.waveIdx++;
+  if(GS.waveIdx >= WAVES.length){
+    victory();
+  }
+  updateUI();
+}
+
+/* Damage entity. Awards credits when killed. */
+function damageEntity(e, dmg, byTower){
+  if(!e.alive) return;
+  e.hp -= dmg;
+  e.hitFlash = 0.12;
+  sfxHit();
+  if(e.hp <= 0){
+    e.alive = false;
+    if(e.kind==='bot'){
+      let reward = 8;
+      if(e.type==='swarm') reward = 5;
+      else if(e.type==='mini') reward = 3;
+      else if(e.type==='ato') reward = 14;
+      else if(e.type==='proxy') reward = 12;
+      else if(e.type==='farm') reward = 20;
+      else if(e.type==='burst') reward = 14;
+      // Resale monitor bonus if nearby — with a coin pulse effect
+      let bonus = 0;
+      let bonusTower = null;
+      for(const t of GS.towers){
+        if(t.key!=='resale') continue;
+        if(dist2(t.x,t.y,e.x,e.y) < t.range*t.range){
+          const bc = TOWERS.resale.bonusCredits[t.level-1];
+          if(bc > bonus){ bonus = bc; bonusTower = t; }
+        }
+      }
+      GS.credits += reward + bonus;
+      GS.stats.botsDestroyed++;
+      // Base bot score + type kicker
+      const kicker = (e.type==='ato'?60:0) + (e.type==='farm'?60:0) + (e.type==='burst'?30:0);
+      const baseScore = CFG.BOT_KILL_SCORE + kicker;
+      // Advance combo BEFORE score so multiplier applies to this kill
+      comboIncrement();
+      const mult = GS.combo.mult;
+      const sMult = scoreMult();
+      const scored = Math.round(baseScore * mult * sMult);
+      const comboBonusPart = Math.round(baseScore * (mult - 1) * sMult);
+      GS.breakdown.botsBase += Math.round(baseScore * sMult);
+      GS.breakdown.comboBonus += comboBonusPart;
+      GS.breakdown.resaleBonus += Math.round(bonus * sMult);
+      GS.score += scored + Math.round(bonus * sMult);
+      const rewardLabel = mult > 1 ? `+$${reward + bonus}  ${CFG.COMBO_TIERS.find(t=>t.mult===mult)?.label || ''}` : (bonus>0 ? `+$${reward + bonus}` : `+$${reward}`);
+      showFloaty(e.x, e.y-14, rewardLabel, mult>=3 ? COLORS.captcha : (bonus>0 ? COLORS.resale : COLORS.gold || COLORS.captcha));
+      burst(e.x, e.y, COLORS.bot);
+      sfxDestroyBot();
+      // Coin pulse from Resale monitor toward the killed bot
+      if(bonusTower){
+        for(let i=0;i<6;i++){
+          const a = Math.atan2(e.y - bonusTower.y, e.x - bonusTower.x) + rand(-0.4, 0.4);
+          GS.particles.push({
+            x: bonusTower.x, y: bonusTower.y - 6,
+            vx: Math.cos(a)*rand(80,140), vy: Math.sin(a)*rand(80,140),
+            life:.35+Math.random()*.2, color:COLORS.resale, size:rand(2,3)
+          });
+        }
+      }
+      // Velocity Trap MVP feedback for fast kills
+      if(byTower && byTower.key === 'velocity' && (e.type==='burst' || e.type==='proxy')){
+        showFloaty(e.x, e.y-28, 'BUSTED', COLORS.velocity, 1.0);
+      }
+      // Splits (fake identity farm) — game-time scheduled scatter, not instant.
+      if(e.splitsInto && !e.__splitDone){
+        e.__splitDone = true;
+        const count = e.splitsInto.count;
+        const type = e.splitsInto.type;
+        // Big pop burst + "SPLIT!" label
+        burst(e.x, e.y, COLORS.violet);
+        burst(e.x, e.y, COLORS.bot2);
+        showFloaty(e.x, e.y-28, 'SPLIT!', COLORS.violet, 1.4);
+        for(let i=0;i<count;i++){
+          // fan out along lane range: parent lane and neighbors, but never off-grid.
+          const laneOffset = Math.round((i - (count-1)/2) * 0.6);
+          const laneIdx = clamp(e.lane + laneOffset, 0, CFG.LANES-1);
+          // Slight backwards nudge so minis do not spawn on top of the vault.
+          const backX = Math.max(CFG.LANE_LEFT + 40, e.x - 30);
+          const y = laneY(laneIdx);
+          GS.pendingSpawns.push({
+            at: GS.time + 0.12 + i*0.06,
+            type, lane: laneIdx,
+            x: backX + rand(-10, 10),
+            y: y + rand(-4, 4),
+          });
+        }
+      }
+    } else {
+      // A FAN was destroyed — bad. Never intended, but handled for safety.
+      GS.fanSat = Math.max(0, GS.fanSat - CFG.FAN_HIT_PENALTY);
+      GS.stats.fansHarmed++;
+      GS.breakdown.penalties -= 300;
+      showFloaty(e.x, e.y-14, `-${CFG.FAN_HIT_PENALTY} Fan!`, COLORS.bad);
+      burst(e.x, e.y, COLORS.fan);
+      comboBreak('fanHarm');
+    }
+    updateUI();
+    checkGameOver();
+  }
+}
+
+/* Entity reaches vault (right edge). */
+function reachVault(e){
+  if(e.kind==='fan'){
+    // Real fan safe.
+    GS.stats.fansSafe++;
+    const bonus = e.verified ? CFG.FAN_ESCAPE_BONUS + 4 : CFG.FAN_ESCAPE_BONUS;
+    GS.credits += bonus;
+    const sMult = scoreMult();
+    const fanScore = Math.round(CFG.FAN_ESCAPE_SCORE * sMult);
+    GS.score += fanScore;
+    GS.breakdown.fansSafe += fanScore;
+    if(e.verified){
+      GS.stats.fansVerifiedSafe++;
+      const vBonus = Math.round(60 * sMult);
+      GS.score += vBonus;
+      GS.breakdown.verifiedBonus += vBonus;
+      // Extend combo grace slightly on verified fan safe
+      GS.combo.graceUntil = GS.time + CFG.COMBO_GRACE_AFTER_FAN_SAFE;
+      if(GS.fanSat < CFG.START_FAN){
+        GS.fanSat = Math.min(CFG.START_FAN, GS.fanSat + 2);
+      }
+    }
+    const label = e.verified ? `FAN SAFE +${bonus} ✓` : `FAN SAFE +${bonus}`;
+    showFloaty(e.x-10, e.y-14, label, COLORS.fanVerified);
+    sfxFanSafe();
+    for(let i=0;i<10;i++){
+      const a = Math.random()*Math.PI*2;
+      GS.particles.push({
+        x:e.x, y:e.y, vx:Math.cos(a)*rand(40,120), vy:Math.sin(a)*rand(40,120),
+        life:.4+Math.random()*.3, color:'#7ce7ff', size:rand(1.5,3)
+      });
+    }
+  } else {
+    // Bot hits vault — clear "LEAK" feedback.
+    GS.hp = Math.max(0, GS.hp - e.damage);
+    GS.stats.botsLeaked = (GS.stats.botsLeaked||0) + 1;
+    GS.breakdown.penalties -= 100;
+    GS.waveHadLeak = true;
+    showFloaty(CFG.VAULT_X-60, e.y-14, `LEAK  -${e.damage}`, COLORS.bad, 1.6);
+    burst(CFG.VAULT_X-20, e.y, COLORS.bad);
+    for(let i=0;i<10;i++){
+      const a = Math.random()*Math.PI*2;
+      GS.particles.push({x:CFG.VAULT_X-20, y:e.y, vx:Math.cos(a)*rand(80,140), vy:Math.sin(a)*rand(80,140),
+        life:.35+Math.random()*.2, color:COLORS.bad, size:rand(2,3.5)});
+    }
+    shakeVault();
+    // Only break combo on leak if grace has expired
+    if(GS.time > GS.combo.graceUntil){
+      comboBreak('leak');
+    }
+  }
+  e.alive = false;
+  updateUI();
+  checkGameOver();
+}
+
+/* Tower targeting. */
+function pickTargetForTower(t){
+  const now_ = now();
+  let best = null; let bestX = -Infinity;
+  for(const e of GS.entities){
+    if(!e.alive) continue;
+    if(e.kind==='fan') continue; // never target fans
+    // ATO in disguise: only certain towers can target it (velocity trap and drones/wall don't need target).
+    // CAPTCHA cannon and resale monitor only shoot bots that are visible bots (revealed or non-disguised).
+    if(e.disguised && !e.revealed){
+      // Only "velocity trap" can hit disguised because it senses speed anomaly.
+      if(t.key !== 'velocity') continue;
+    }
+    // Velocity trap targets only fast-enough entities
+    if(t.key==='velocity' && e.speed*e.slowFactor < 55) continue;
+    const r2 = t.range*t.range;
+    const d2 = dist2(t.x,t.y,e.x,e.y);
+    if(d2 > r2) continue;
+    // Prefer the one closest to vault (highest x)
+    if(e.x > bestX){ best = e; bestX = e.x; }
+  }
+  return best;
+}
+
+/* Fire projectile from tower to entity. */
+function fireProjectile(t, target){
+  const cfg = TOWERS[t.key];
+  const projSpeed = (cfg.projectileSpeed||[500,500,500])[t.level-1];
+  let damage = cfg.damage[t.level-1];
+  // Velocity trap scales with speed
+  if(t.key==='velocity'){
+    const spdRatio = clamp((target.speed - cfg.speedRefSlow)/(cfg.speedRefFast - cfg.speedRefSlow),0,1);
+    const mult = cfg.minMult + (1-cfg.minMult)*spdRatio;
+    damage *= 1 + spdRatio*1.5;
+    damage *= mult;
+  }
+  GS.projectiles.push({
+    x:t.x, y:t.y-6,
+    tx:target.x, ty:target.y,
+    target,
+    speed: projSpeed,
+    damage,
+    color: cfg.color,
+    key:t.key,
+    owner:t,
+    life:0.8
+  });
+  // muzzle flash
+  t.muzzleFlash = 0.12;
+  // recoil push (visual only)
+  if(!CFG.REDUCED_MOTION) t.recoil = 0.15;
+}
+
+/* Update towers each frame. */
+function tickTowers(dt){
+  const t_now = GS.time;
+  for(const t of GS.towers){
+    t.cooldown -= dt;
+    if(t.muzzleFlash>0) t.muzzleFlash -= dt;
+    if(t.recoil>0) t.recoil -= dt;
+    // Special behavior per tower type
+    switch(t.key){
+      case 'shield': {
+        // Verify fans in range (no cooldown gating needed but throttle a bit).
+        // Bonus: verified fans stay verified longer than the tag interval so they
+        // keep their speed boost + safety-refund benefits all the way to the vault.
+        if(t.cooldown <= 0){
+          for(const e of GS.entities){
+            if(!e.alive || e.kind!=='fan') continue;
+            if(dist2(t.x,t.y,e.x,e.y) < t.range*t.range){
+              e.verified = true;
+              e.verifiedUntil = t_now + 8; // longer verification window
+              e.speedBoost = TOWERS.shield.tagStrength[t.level-1];
+              spark(e.x, e.y-16, COLORS.shield);
+            }
+          }
+          t.cooldown = TOWERS.shield.fireRate[t.level-1];
+        }
+        break;
+      }
+      case 'scanner': {
+        if(t.cooldown <= 0){
+          for(const e of GS.entities){
+            if(!e.alive) continue;
+            if(!e.disguised || e.revealed) continue;
+            if(dist2(t.x,t.y,e.x,e.y) < t.range*t.range){
+              e.revealed = true;
+              e.disguised = false;
+              e.kind = 'bot';
+              e.hitFlash = 0.4;
+              e.revealAt = t_now;
+              // Big reveal burst: blue-to-red pop + scrap sparks
+              burst(e.x, e.y, COLORS.disguise);
+              burst(e.x, e.y, COLORS.bot);
+              spark(e.x, e.y-16, '#ff2a55');
+              spark(e.x, e.y-16, '#ffffff');
+              showFloaty(e.x, e.y-24, 'REVEALED!', '#ff2a55');
+              // Teaching cue on first reveal
+              if(!GS.cues.firstReveal){
+                GS.cues.firstReveal = true;
+                showFloaty(e.x, e.y+30, 'Scanner caught a fake fan!', COLORS.scanner);
+              }
+              sfxHit();
+            }
+          }
+          t.cooldown = TOWERS.scanner.fireRate[t.level-1];
+        }
+        break;
+      }
+      case 'wall': {
+        // Slow bots in range each frame.
+        for(const e of GS.entities){
+          if(!e.alive || e.kind!=='bot') continue;
+          if(dist2(t.x,t.y,e.x,e.y) < t.range*t.range){
+            e.slowFactor = Math.min(e.slowFactor, TOWERS.wall.slowFactor[t.level-1]);
+            e.slowUntil = t_now + 0.2;
+          }
+        }
+        break;
+      }
+      case 'drone': {
+        // Patrol along lane; stun bots touched.
+        const path = t.patrol;
+        const spd = TOWERS.drone.patrolSpeed[t.level-1];
+        t.patrolT += spd*dt * t.patrolDir;
+        if(t.patrolT >= path.length || t.patrolT <= 0){ t.patrolDir *= -1; t.patrolT = clamp(t.patrolT,0,path.length); }
+        t.x = path.startX + t.patrolT * Math.cos(0); // straight horizontal patrol
+        t.y = path.y;
+        // stun in radius. Skip disguised ATOs — the drone can't tell them from fans yet.
+        for(const e of GS.entities){
+          if(!e.alive || e.kind!=='bot') continue;
+          if(e.disguised && !e.revealed) continue;
+          if(dist2(t.x,t.y,e.x,e.y) < t.range*t.range){
+            e.stunUntil = Math.max(e.stunUntil, t_now + TOWERS.drone.stunDuration[t.level-1]);
+            spark(e.x, e.y-14, COLORS.stun);
+          }
+        }
+        break;
+      }
+      case 'captcha':
+      case 'velocity':
+      case 'resale': {
+        if(t.cooldown <= 0){
+          const target = pickTargetForTower(t);
+          if(target){
+            t.aimTargetX = target.x; t.aimTargetY = target.y;
+            fireProjectile(t, target);
+            t.cooldown = TOWERS[t.key].fireRate[t.level-1];
+            spark(t.x, t.y-10, t.color);
+          }
+        }
+        break;
+      }
+    }
+  }
+}
+
+/* Advance projectiles. Homing behavior with lifespan cap. */
+function tickProjectiles(dt){
+  for(const p of GS.projectiles){
+    if(p.dead) continue;
+    p.life -= dt;
+    if(p.life<=0){ p.dead=true; continue; }
+    const target = p.target;
+    if(target && target.alive){
+      const dx = target.x - p.x, dy = target.y - p.y;
+      const d = Math.hypot(dx,dy) || 1;
+      const step = p.speed * dt;
+      if(d <= step + 8){
+        damageEntity(target, p.damage, p.owner);
+        p.dead = true;
+      } else {
+        p.x += dx/d * step;
+        p.y += dy/d * step;
+      }
+    } else {
+      // target lost — continue in last direction briefly and die
+      p.x += p.speed * dt * 0.7;
+      p.dead = p.x > CFG.LANE_RIGHT + 40;
+    }
+  }
+  GS.projectiles = GS.projectiles.filter(p => !p.dead);
+}
+
+/* Move entities. */
+function tickEntities(dt){
+  const t_now = GS.time;
+  for(const e of GS.entities){
+    if(!e.alive) continue;
+    // decay slow
+    if(t_now > e.slowUntil){ e.slowFactor = 1; }
+    // stun freezes movement
+    const stunned = t_now < e.stunUntil;
+
+    // fans get verified speed boost
+    let spd = e.speed;
+    if(e.kind==='fan'){
+      if(e.verified && t_now < e.verifiedUntil){
+        spd *= (e.speedBoost || 1.15);
+      }
+    } else {
+      spd *= e.slowFactor;
+    }
+
+    if(!stunned){
+      e.x += spd * dt;
+    }
+
+    // Proxy lane switching — with a visible "pre-jump" tell so the player can react.
+    if(e.canSwitchLane && !stunned){
+      // Only allow switches when the bot is well inside the field so it doesn't jump into the vault.
+      const inField = e.x > CFG.LANE_LEFT + 60 && e.x < CFG.LANE_RIGHT - 120;
+      if(inField && !e.jumpTellAt && t_now >= e.nextSwitchAt){
+        // Pick a valid neighbor lane once, at the start of the tell.
+        const options = [];
+        if(e.lane > 0) options.push(e.lane - 1);
+        if(e.lane < CFG.LANES - 1) options.push(e.lane + 1);
+        e.jumpTargetLane = options[Math.floor(Math.random()*options.length)];
+        e.jumpTellAt = t_now;
+        // brief tell floaty
+        showFloaty(e.x, e.y - 24, 'PROXY JUMP', COLORS.bot2, 0.6);
+        // schedule the actual switch in ~0.55s
+        e.jumpFireAt = t_now + 0.55;
+      }
+      // Fire the switch once the tell timer completes
+      if(e.jumpFireAt && t_now >= e.jumpFireAt){
+        const newLane = clamp(e.jumpTargetLane, 0, CFG.LANES-1);
+        if(newLane !== e.lane){
+          e.lane = newLane;
+          e.targetY = laneY(newLane);
+          // small poof of sparks
+          spark(e.x, e.y-14, COLORS.bot2);
+        }
+        // cool-down before another switch (longer so it doesn't feel spammy)
+        e.nextSwitchAt = t_now + 2.4 + Math.random()*1.8;
+        e.jumpTellAt = 0;
+        e.jumpFireAt = 0;
+        e.jumpTargetLane = undefined;
+      }
+    }
+    if(e.targetY !== undefined){
+      const dy = e.targetY - e.y;
+      if(Math.abs(dy) < 1){ e.y = e.targetY; e.targetY = undefined; }
+      else { e.y += Math.sign(dy) * Math.min(120*dt, Math.abs(dy)); }
+    }
+
+    // hit flash decay
+    if(e.hitFlash>0) e.hitFlash -= dt;
+
+    // reaches vault
+    if(e.x >= CFG.LANE_RIGHT){
+      reachVault(e);
+    }
+  }
+  GS.entities = GS.entities.filter(e => e.alive);
+}
+
+/* Floating text (+$5 etc). Pass life to hold longer for teaching cues. */
+function showFloaty(x,y,text,color,life){
+  GS.floaties.push({x,y,text,color,life:life ?? 1.2,vy:-24});
+}
+function tickFloaties(dt){
+  for(const f of GS.floaties){
+    f.life -= dt;
+    f.y += f.vy * dt;
+    f.vy *= 0.96;
+  }
+  GS.floaties = GS.floaties.filter(f => f.life > 0);
+}
+
+/* Particles (burst on destroy). */
+function burst(x,y,color){
+  const n = CFG.REDUCED_MOTION ? 3 : 12;
+  for(let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2;
+    const s = rand(60, 180);
+    GS.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.4+Math.random()*.3,color,size:rand(1.5,3)});
+  }
+}
+function spark(x,y,color){
+  GS.particles.push({x,y,vx:0,vy:-30,life:.35,color,size:2.4});
+}
+function tickParticles(dt){
+  for(const p of GS.particles){
+    p.life -= dt;
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    p.vx *= 0.92; p.vy *= 0.92;
+  }
+  GS.particles = GS.particles.filter(p => p.life > 0);
+}
+
+/* Vault shake — small screen-shake feedback. */
+let shake = 0;
+function shakeVault(){ if(!CFG.REDUCED_MOTION) shake = 0.4; }
+
+/* Check win/loss. */
+function checkGameOver(){
+  if(GS.hp <= 0){ endGame(false, 'Ticket Vault breached'); }
+  else if(GS.fanSat <= 0){ endGame(false, 'Fan satisfaction collapsed'); }
+}
+
+/* Place a tower into a cell. */
+function placeTower(key, cell){
+  const cfg = TOWERS[key];
+  if(GS.credits < cfg.cost[0]) return;
+  GS.credits -= cfg.cost[0];
+  cell.occupied = true;
+  const t = {
+    key, cell,
+    x: cell.x + cell.w/2,
+    y: cell.y + cell.h/2,
+    level:1,
+    range: cfg.range[0],
+    color: cfg.color,
+    cooldown:0,
+  };
+  if(key==='drone'){
+    // Drone patrols horizontally near its lane.
+    t.patrol = { startX: cell.x - 40, y: laneY(cell.lane), length: 220 };
+    t.patrolT = 0; t.patrolDir = 1;
+    t.x = t.patrol.startX; t.y = t.patrol.y;
+  }
+  GS.towers.push(t);
+  sfxPlaceDefense();
+  // Auto-deselect to let player click quickly on more cells if they hold shift? Keep it selected for chaining.
+  updateUI();
+}
+
+/* Upgrade / sell selected tower. */
+function upgradeTower(t){
+  const cfg = TOWERS[t.key];
+  if(t.level >= 3) return;
+  const cost = cfg.cost[t.level];
+  if(GS.credits < cost) return;
+  GS.credits -= cost;
+  t.level += 1;
+  t.range = cfg.range[t.level-1];
+  sfxUpgrade();
+  updateUI();
+  showCtxMenu(t);
+}
+function sellTower(t){
+  const cfg = TOWERS[t.key];
+  let paid = 0;
+  for(let i=0;i<t.level;i++) paid += cfg.cost[i];
+  const refund = Math.round(paid * 0.6);
+  GS.credits += refund;
+  t.cell.occupied = false;
+  GS.towers = GS.towers.filter(x=>x!==t);
+  showFloaty(t.x, t.y-14, `+${refund} refund`, COLORS.captcha);
+  hideCtxMenu();
+  updateUI();
+}
+
+/* ---------------------------------------------------------------------------
+ * [12] RENDER
+ * ------------------------------------------------------------------------- */
+function render(dt){
+  ctx.setTransform(1,0,0,1,0,0);
+  // clear
+  ctx.fillStyle = COLORS.bg0;
+  ctx.fillRect(0,0,canvas.width, canvas.height);
+
+  // apply scale + shake
+  ctx.setTransform(dpr*scaleX, 0, 0, dpr*scaleY, dpr*(shake?rand(-3,3):0), dpr*(shake?rand(-2,2):0));
+  if(shake>0) shake -= dt;
+
+  drawBackground();
+  drawLanes();
+  drawPlacementCells();
+  drawVault();
+  drawEntities();
+  drawTowers();
+  drawProjectiles();
+  drawParticles();
+  drawFloaties();
+  drawTopVignette();
+}
+
+function drawBackground(){
+  // Venue-aware backdrop
+  const grd = ctx.createLinearGradient(0,0,0,CFG.DESIGN_H);
+  grd.addColorStop(0, RUNTIME_PALETTE.bg0);
+  grd.addColorStop(1, RUNTIME_PALETTE.bg1);
+  ctx.fillStyle = grd;
+  ctx.fillRect(0,0,CFG.DESIGN_W,CFG.DESIGN_H);
+
+  // faint grid
+  ctx.strokeStyle='rgba(90,140,220,.05)';
+  ctx.lineWidth=1;
+  for(let x=0;x<CFG.DESIGN_W;x+=40){
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,CFG.DESIGN_H); ctx.stroke();
+  }
+  for(let y=0;y<CFG.DESIGN_H;y+=40){
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(CFG.DESIGN_W,y); ctx.stroke();
+  }
+}
+
+function drawLanes(){
+  // Spawn strip on the left
+  ctx.fillStyle='rgba(91,255,157,.06)';
+  ctx.fillRect(0, CFG.LANE_TOP-4, 30, CFG.LANE_BOTTOM-CFG.LANE_TOP+8);
+  ctx.fillStyle=COLORS.spawn;
+  ctx.font='bold 10px Inter, system-ui, sans-serif';
+  ctx.textAlign='center';
+  ctx.save();
+  ctx.translate(14,(CFG.LANE_TOP+CFG.LANE_BOTTOM)/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('CROWD FLOW  →', 0, 4);
+  ctx.restore();
+
+  // Lane strips (venue-aware palette)
+  for(let i=0;i<CFG.LANES;i++){
+    const y = laneY(i);
+    const h = laneHeight();
+    ctx.fillStyle = i%2===0 ? RUNTIME_PALETTE.laneEven : RUNTIME_PALETTE.laneOdd;
+    ctx.fillRect(CFG.LANE_LEFT, y-h/2, CFG.LANE_RIGHT-CFG.LANE_LEFT, h);
+
+    // scanner track (bright line down the middle)
+    const grd = ctx.createLinearGradient(CFG.LANE_LEFT, y, CFG.LANE_RIGHT, y);
+    grd.addColorStop(0,'rgba(59,208,255,.35)');
+    grd.addColorStop(0.5,'rgba(59,208,255,.15)');
+    grd.addColorStop(1,'rgba(255,210,63,.45)');
+    ctx.strokeStyle = grd; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(CFG.LANE_LEFT, y); ctx.lineTo(CFG.LANE_RIGHT, y); ctx.stroke();
+
+    // dashed edges
+    ctx.setLineDash([6,10]);
+    ctx.strokeStyle = COLORS.laneEdge; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(CFG.LANE_LEFT, y-h/2); ctx.lineTo(CFG.LANE_RIGHT, y-h/2);
+    ctx.moveTo(CFG.LANE_LEFT, y+h/2); ctx.lineTo(CFG.LANE_RIGHT, y+h/2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // lane label
+    ctx.fillStyle=COLORS.inkDim;
+    ctx.font='bold 10px Inter';
+    ctx.textAlign='left';
+    ctx.fillText(`LANE ${i+1}`, CFG.LANE_LEFT+8, y-h/2+12);
+
+    // barricade posts
+    for(let k=0;k<8;k++){
+      const px = CFG.LANE_LEFT + 130 + k * ((CFG.LANE_RIGHT-CFG.LANE_LEFT-160)/7);
+      ctx.fillStyle='#1a2c56';
+      ctx.fillRect(px-1, y-h/2-3, 2, 3);
+      ctx.fillRect(px-1, y+h/2, 2, 3);
+    }
+  }
+
+  // Direction arrow at spawn
+  const t_ = GS.time;
+  const arrowX = 30 + (t_*30 % 30);
+  ctx.fillStyle='rgba(91,255,157,.5)';
+  for(let i=0;i<3;i++){
+    const y = laneY(1);
+    ctx.beginPath();
+    ctx.moveTo(arrowX + i*22 -8, y-8);
+    ctx.lineTo(arrowX + i*22 +2, y);
+    ctx.lineTo(arrowX + i*22 -8, y+8);
+    ctx.closePath(); ctx.fill();
+  }
+}
+
+function drawPlacementCells(){
+  const showAll = !!GS.selectedTowerType;
+  const pulse = 0.5 + 0.5*Math.sin(GS.time*3);
+  for(const c of GS.cells){
+    if(c.occupied) continue;
+    const hovered = GS.hoverCell === c;
+    if(showAll){
+      // Brighten valid cells when a tower is selected
+      ctx.fillStyle = hovered ? 'rgba(91,255,157,.32)' : `rgba(91,255,157,${.10 + .05*pulse})`;
+      ctx.fillRect(c.x, c.y, c.w, c.h);
+      ctx.strokeStyle = hovered ? COLORS.spawn : 'rgba(91,255,157,.4)';
+      ctx.lineWidth = hovered ? 2 : 1;
+      ctx.strokeRect(c.x+0.5, c.y+0.5, c.w-1, c.h-1);
+      if(hovered && GS.selectedTowerType){
+        drawTowerIcon(ctx, c.x + c.w/2, c.y + c.h/2, GS.selectedTowerType, 1, GS.time, 0.85);
+        // range preview
+        const cfg = TOWERS[GS.selectedTowerType];
+        ctx.strokeStyle = cfg.color+'';
+        ctx.globalAlpha=.9;
+        ctx.setLineDash([5,4]);
+        ctx.beginPath(); ctx.arc(c.x+c.w/2, c.y+c.h/2, cfg.range[0], 0, Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha=1;
+      }
+    } else {
+      // Quiet, minimal hint dots when no tower selected — grid stays out of the way.
+      ctx.fillStyle='rgba(91,255,157,.10)';
+      ctx.fillRect(c.x+c.w/2-1, c.y+c.h/2-1, 2, 2);
+    }
+  }
+  // invalid flash — red pop + shake
+  if(GS.invalidFlash>0 && GS.invalidPt){
+    const a = Math.max(0, GS.invalidFlash/0.35);
+    ctx.strokeStyle=`rgba(255,60,90,${0.85*a})`;
+    ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(GS.invalidPt.x, GS.invalidPt.y, 26+(1-a)*10, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle=`rgba(255,60,90,${0.25*a})`;
+    ctx.beginPath(); ctx.arc(GS.invalidPt.x, GS.invalidPt.y, 26+(1-a)*10, 0, Math.PI*2); ctx.fill();
+  }
+}
+
+function drawVault(){
+  // Chunky golden ticket vault — the focal point of the whole board.
+  const vx = CFG.LANE_RIGHT + 8;
+  const vw = 66;
+  const top = CFG.LANE_TOP - 30;
+  const bot = CFG.LANE_BOTTOM + 30;
+  const vh = bot - top;
+  const t = GS.time;
+  const hpPct = clamp(GS.hp/CFG.START_HP, 0, 1);
+
+  // small shake offset when damage recently taken
+  const sx = shake>0 && !CFG.REDUCED_MOTION ? rand(-2,2) : 0;
+  const sy = shake>0 && !CFG.REDUCED_MOTION ? rand(-2,2) : 0;
+
+  ctx.save();
+  ctx.translate(sx, sy);
+
+  // outer safe-glow (only when healthy)
+  if(hpPct > 0.4){
+    ctx.save();
+    ctx.globalAlpha = 0.35 + 0.15*Math.sin(t*2);
+    const g = ctx.createRadialGradient(vx+vw/2, (top+bot)/2, 20, vx+vw/2, (top+bot)/2, 80);
+    // Venue-aware vault glow — Neon uses pink glow, TrueTix gold.
+    const glowColor = RUNTIME_PALETTE.vaultGlow || 'rgba(255,210,63,.55)';
+    const glowTransparent = glowColor.replace(/,\s*\.?\d+(\.\d+)?\)$/, ',0)');
+    g.addColorStop(0, glowColor);
+    g.addColorStop(1, glowTransparent);
+    ctx.fillStyle=g;
+    ctx.fillRect(vx-40, top-40, vw+80, vh+80);
+    ctx.restore();
+  }
+
+  // vault body
+  const bodyGrad = ctx.createLinearGradient(vx, top, vx+vw, top);
+  bodyGrad.addColorStop(0,'#1a2038');
+  bodyGrad.addColorStop(0.5,'#242c4d');
+  bodyGrad.addColorStop(1,'#12172a');
+  ctx.fillStyle = bodyGrad;
+  ctx.fillRect(vx, top, vw, vh);
+  // outer frame
+  ctx.strokeStyle=COLORS.vault; ctx.lineWidth=3;
+  ctx.strokeRect(vx+0.5, top+0.5, vw-1, vh-1);
+  // inner frame
+  ctx.strokeStyle='#8f7420'; ctx.lineWidth=1;
+  ctx.strokeRect(vx+5.5, top+5.5, vw-11, vh-11);
+
+  // marquee sign at top
+  ctx.fillStyle=COLORS.vault;
+  ctx.fillRect(vx-4, top-14, vw+8, 14);
+  ctx.strokeStyle='#5a4508'; ctx.lineWidth=1.2;
+  ctx.strokeRect(vx-4+.5, top-14+.5, vw+8-1, 14-1);
+  ctx.fillStyle='#3a2a00';
+  ctx.font='bold 10px Inter, system-ui';
+  ctx.textAlign='center';
+  ctx.fillText('TICKET VAULT', vx+vw/2, top-4);
+  // marquee bulbs
+  for(let i=0;i<6;i++){
+    const bx = vx - 2 + i*((vw+4)/5);
+    const on = Math.sin(t*4 + i) > 0;
+    ctx.fillStyle = on ? '#fff3a8' : '#8a6f00';
+    ctx.beginPath(); ctx.arc(bx, top-7, 1.6, 0, Math.PI*2); ctx.fill();
+  }
+
+  // glass panel — inner display window
+  const gx = vx+8, gy = top+10, gw = vw-16, gh = vh-30;
+  ctx.fillStyle='#050912';
+  ctx.fillRect(gx, gy, gw, gh);
+  ctx.strokeStyle='#0a1428'; ctx.lineWidth=1;
+  ctx.strokeRect(gx+.5, gy+.5, gw-1, gh-1);
+
+  // oversized ticket stack inside — height reflects HP
+  const stackFillH = gh * hpPct;
+  const stackTop = gy + (gh - stackFillH);
+  // stack of chunky gold tickets
+  const ticketH = 22, gap = 4;
+  const totalTicketRows = Math.max(1, Math.floor(stackFillH / (ticketH+gap)));
+  for(let i=0;i<totalTicketRows;i++){
+    const ty = gy + gh - (i+1)*(ticketH+gap) + 2;
+    if(ty < stackTop-6) break;
+    // ticket body
+    const tGrad = ctx.createLinearGradient(0, ty, 0, ty+ticketH);
+    tGrad.addColorStop(0,'#ffe578');
+    tGrad.addColorStop(1,'#e0a72a');
+    ctx.fillStyle = tGrad;
+    roundRect(ctx, gx+4, ty, gw-8, ticketH, 2, true, false);
+    // perforated notch
+    ctx.fillStyle='#050912';
+    ctx.beginPath();
+    ctx.arc(gx+4 + (gw-8)*0.55, ty, 2.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath();
+    ctx.arc(gx+4 + (gw-8)*0.55, ty+ticketH, 2.5, 0, Math.PI*2); ctx.fill();
+    // stripes
+    ctx.fillStyle='#8a5f10';
+    ctx.fillRect(gx+8, ty+ticketH/2-1, 12, 2);
+    ctx.fillRect(gx+8, ty+ticketH/2+3, 8, 1);
+    // star icon
+    ctx.fillStyle='#3a2a00';
+    ctx.fillRect(gx+gw-16, ty+6, 8, 8);
+  }
+  // glass reflection sheen
+  ctx.save();
+  ctx.globalAlpha=.15;
+  const sheen = ctx.createLinearGradient(gx, gy, gx, gy+gh);
+  sheen.addColorStop(0,'rgba(255,255,255,.6)');
+  sheen.addColorStop(.3,'rgba(255,255,255,0)');
+  ctx.fillStyle=sheen;
+  ctx.fillRect(gx, gy, gw, gh);
+  ctx.restore();
+
+  // door handle
+  ctx.fillStyle='#8a6f00';
+  ctx.fillRect(vx+vw-6, top+vh/2-8, 4, 16);
+  ctx.fillStyle=COLORS.vault;
+  ctx.beginPath(); ctx.arc(vx+vw-4, top+vh/2, 3, 0, Math.PI*2); ctx.fill();
+
+  // Cracks + red warning when damaged
+  if(hpPct < 0.5){
+    ctx.save();
+    ctx.strokeStyle='rgba(255,74,110,.6)';
+    ctx.lineWidth=1.4;
+    ctx.beginPath();
+    ctx.moveTo(vx+8, top+22); ctx.lineTo(vx+22, top+35); ctx.lineTo(vx+16, top+50);
+    ctx.moveTo(vx+vw-12, top+80); ctx.lineTo(vx+vw-22, top+95); ctx.lineTo(vx+vw-14, top+115);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if(hpPct < 0.4){
+    ctx.save();
+    ctx.globalAlpha = 0.35 + 0.35*Math.sin(t*8);
+    ctx.strokeStyle=COLORS.bad; ctx.lineWidth=3;
+    ctx.strokeRect(vx-1, top-1, vw+2, vh+2);
+    // warning text
+    ctx.fillStyle=COLORS.bad;
+    ctx.globalAlpha = 0.6 + 0.4*Math.sin(t*8);
+    ctx.font='bold 9px Inter';
+    ctx.fillText('! BREACH !', vx+vw/2, bot+12);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function drawEntities(){
+  for(const e of GS.entities){
+    const t = GS.time + e.id;
+    // hit flash halo
+    if(e.hitFlash>0){
+      ctx.save();
+      ctx.globalAlpha=.6;
+      ctx.fillStyle='white';
+      ctx.beginPath(); ctx.arc(e.x, e.y, 18, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+    // slow field on bots
+    if(e.kind==='bot' && e.slowFactor < 0.95){
+      ctx.save();
+      ctx.globalAlpha=.5;
+      ctx.strokeStyle=COLORS.slow; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(e.x, e.y, 20, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
+    }
+    // stun ring
+    if(GS.time < e.stunUntil){
+      ctx.save();
+      ctx.strokeStyle=COLORS.stun; ctx.lineWidth=1.6;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.arc(e.x, e.y-2, 22, 0, Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    // Proxy jump tell — zigzag arrow between current lane and target lane.
+    if(e.canSwitchLane && e.jumpFireAt && e.jumpTargetLane !== undefined){
+      const targetY = laneY(e.jumpTargetLane);
+      const life = clamp(1 - (e.jumpFireAt - now())/0.55, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = 0.35 + 0.35*Math.sin(GS.time*20);
+      ctx.strokeStyle = COLORS.bot2;
+      ctx.lineWidth = 2.2;
+      ctx.setLineDash([5,4]);
+      // Zigzag line from current bot to target lane
+      const midX = e.x + 12;
+      const endY = e.y + (targetY - e.y) * clamp(life*0.6, 0.15, 0.6);
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(midX, e.y + (targetY - e.y)*0.35);
+      ctx.lineTo(midX - 4, e.y + (targetY - e.y)*0.55);
+      ctx.lineTo(e.x + 8, endY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // side arrow
+      const dir = Math.sign(targetY - e.y) || 1;
+      ctx.beginPath();
+      ctx.moveTo(e.x + 8, endY);
+      ctx.lineTo(e.x + 2, endY - 5*dir);
+      ctx.lineTo(e.x + 14, endY - 5*dir);
+      ctx.closePath();
+      ctx.fillStyle = COLORS.bot2;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    if(e.kind==='fan'){
+      drawFan(ctx, e.x, e.y, t, false, e.verified && GS.time<e.verifiedUntil);
+    } else if(e.type==='ato' && e.disguised && !e.revealed){
+      drawATODisguise(ctx, e.x, e.y, t);
+    } else if(e.type==='mini'){
+      drawMiniBot(ctx, e.x, e.y, t, e.hitFlash>0);
+    } else if(e.type==='burst'){
+      drawBurstBot(ctx, e.x, e.y, t, e.hitFlash>0);
+    } else {
+      const variant = (e.type==='swarm'||e.type==='burst'||e.type==='farm') ? e.type : (e.type==='proxy' ? 'proxy' : 'basic');
+      drawBot(ctx, e.x, e.y, t, variant, e.hitFlash>0);
+      // Reveal flash — big burst first 0.5s after reveal
+      if(e.revealAt && GS.time - e.revealAt < 0.5){
+        const rp = 1 - (GS.time-e.revealAt)/0.5;
+        ctx.save();
+        ctx.globalAlpha = rp*0.9;
+        const g = ctx.createRadialGradient(e.x, e.y, 4, e.x, e.y, 40);
+        g.addColorStop(0,'#ffffff');
+        g.addColorStop(0.4,'#ff2a55');
+        g.addColorStop(1,'rgba(255,42,85,0)');
+        ctx.fillStyle=g;
+        ctx.beginPath(); ctx.arc(e.x, e.y, 40, 0, Math.PI*2); ctx.fill();
+        // expanding ring
+        ctx.globalAlpha = rp*0.8;
+        ctx.strokeStyle='#ff2a55';
+        ctx.lineWidth=2.5;
+        ctx.beginPath(); ctx.arc(e.x, e.y, 20 + (1-rp)*30, 0, Math.PI*2); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // health bar for bots at partial hp
+    if(e.kind==='bot' && e.hp < e.maxHp){
+      const w = 22, h = 3;
+      ctx.fillStyle='#0a1226';
+      ctx.fillRect(e.x-w/2, e.y-22, w, h);
+      ctx.fillStyle=COLORS.bad;
+      ctx.fillRect(e.x-w/2, e.y-22, w * (e.hp/e.maxHp), h);
+    }
+  }
+}
+
+function drawTowers(){
+  for(const t of GS.towers){
+    // range if selected
+    if(GS.selectedTower === t){
+      ctx.strokeStyle=t.color; ctx.globalAlpha=.7;
+      ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha=1;
+    }
+    // recoil offset
+    const rec = (t.recoil||0) * 6;
+    const dx = t.aimTargetX ? Math.sign(t.aimTargetX - t.x) * rec * -1 : 0;
+    const dy = t.aimTargetY ? Math.sign(t.aimTargetY - t.y) * rec * -1 : 0;
+    drawTowerIcon(ctx, t.x + dx, t.y + dy, t.key, t.level, GS.time+t.x*0.001, 1);
+    // Muzzle flash
+    if(t.muzzleFlash>0){
+      const a = clamp(t.muzzleFlash/0.12, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = a;
+      const fx = t.x, fy = t.y-14;
+      const g = ctx.createRadialGradient(fx, fy, 1, fx, fy, 22);
+      g.addColorStop(0,'rgba(255,255,255,1)');
+      g.addColorStop(0.4, t.color);
+      g.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(fx, fy, 22, 0, Math.PI*2); ctx.fill();
+      // spike
+      ctx.fillStyle='#fff8c8';
+      ctx.beginPath();
+      ctx.moveTo(fx-3, fy);
+      ctx.lineTo(fx, fy-12);
+      ctx.lineTo(fx+3, fy);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    // Wall visual — pulsing slow-field
+    if(t.key==='wall'){
+      ctx.save();
+      ctx.globalAlpha = 0.16 + 0.1*Math.sin(GS.time*3);
+      const g = ctx.createRadialGradient(t.x, t.y, 4, t.x, t.y, t.range);
+      g.addColorStop(0, 'rgba(255,138,59,.6)');
+      g.addColorStop(1, 'rgba(255,138,59,0)');
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI*2); ctx.fill();
+      // rotating checkpoint gate lines
+      ctx.globalAlpha=.4;
+      ctx.strokeStyle=t.color; ctx.lineWidth=1.4;
+      for(let i=0;i<4;i++){
+        const a = GS.time*1.2 + i*Math.PI/2;
+        ctx.beginPath();
+        ctx.moveTo(t.x + Math.cos(a)*(t.range-10), t.y + Math.sin(a)*(t.range-10));
+        ctx.lineTo(t.x + Math.cos(a)*t.range, t.y + Math.sin(a)*t.range);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // Scanner sweep
+    if(t.key==='scanner'){
+      ctx.save();
+      ctx.strokeStyle=t.color;
+      ctx.globalAlpha=.25;
+      ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range*0.4, 0, Math.PI*2); ctx.stroke();
+      // outer pulse ring
+      const pulse = (GS.time * 0.7) % 1;
+      ctx.globalAlpha = .3 * (1-pulse);
+      ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range*pulse, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
+    }
+    // Drone patrol path
+    if(t.key==='drone'){
+      ctx.save();
+      ctx.strokeStyle='rgba(142,168,255,.28)';
+      ctx.setLineDash([4,6]);
+      ctx.beginPath();
+      ctx.moveTo(t.patrol.startX, t.patrol.y);
+      ctx.lineTo(t.patrol.startX + t.patrol.length, t.patrol.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // stun radius
+      ctx.strokeStyle='rgba(255,224,102,.35)';
+      ctx.setLineDash([2,3]);
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+  }
+}
+
+function drawProjectiles(){
+  for(const p of GS.projectiles){
+    ctx.save();
+    // Glow halo
+    ctx.globalAlpha=.5;
+    const gg = ctx.createRadialGradient(p.x,p.y,1,p.x,p.y,10);
+    gg.addColorStop(0, p.color); gg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=gg;
+    ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=1;
+    // Trail
+    ctx.strokeStyle=p.color;
+    ctx.lineWidth = p.key==='captcha'? 4 : (p.key==='velocity'?5:2.5);
+    ctx.lineCap='round';
+    const tx = p.target && p.target.alive ? p.target.x : p.x + 20;
+    const ty = p.target && p.target.alive ? p.target.y : p.y;
+    const dx = tx-p.x, dy = ty-p.y;
+    const d = Math.hypot(dx,dy) || 1;
+    const tail = 18;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x - dx/d*tail, p.y - dy/d*tail);
+    ctx.stroke();
+    // Bright core
+    ctx.fillStyle='white';
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawParticles(){
+  for(const p of GS.particles){
+    ctx.globalAlpha = clamp(p.life*2, 0, 1);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawFloaties(){
+  ctx.font='bold 13px Inter, system-ui';
+  ctx.textAlign='center';
+  for(const f of GS.floaties){
+    ctx.globalAlpha = clamp(f.life, 0, 1);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha=1;
+}
+
+function drawTopVignette(){
+  // subtle top gradient for readability
+  const g = ctx.createLinearGradient(0,0,0,80);
+  g.addColorStop(0,'rgba(0,0,0,.4)');
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g;
+  ctx.fillRect(0,0,CFG.DESIGN_W, 80);
+}
+
+/* ---------------------------------------------------------------------------
+ * [13] UI — HUD, panel, banner, ctx menu, overlays
+ * ------------------------------------------------------------------------- */
+const els = {
+  credits: document.getElementById('hud-credits'),
+  hp: document.getElementById('hud-hp'),
+  hpText: document.getElementById('hud-hp-text'),
+  fan: document.getElementById('hud-fan'),
+  fanText: document.getElementById('hud-fan-text'),
+  wave: document.getElementById('hud-wave'),
+  waveSub: document.getElementById('hud-wave-sub'),
+  score: document.getElementById('hud-score'),
+  combo: document.getElementById('hud-combo'),
+  panel: document.getElementById('panel'),
+  banner: document.getElementById('banner'),
+  bannerNum: document.getElementById('banner-num'),
+  bannerName: document.getElementById('banner-name'),
+  bannerHint: document.getElementById('banner-hint'),
+  overlay: document.getElementById('overlay'),
+  overlayCard: document.getElementById('overlay-card'),
+  btnWave: document.getElementById('btn-wave'),
+  btnRestart: document.getElementById('btn-restart'),
+  footHint: document.getElementById('foot-hint'),
+  ctx: document.getElementById('ctx-menu'),
+  ctxName: document.getElementById('ctx-name'),
+  ctxLvl: document.getElementById('ctx-lvl'),
+  ctxDmg: document.getElementById('ctx-dmg'),
+  ctxRng: document.getElementById('ctx-rng'),
+  ctxUp: document.getElementById('ctx-upgrade'),
+  ctxSell: document.getElementById('ctx-sell'),
+  ovrStart: document.getElementById('ovr-start'),
+};
+
+function updateUI(){
+  els.credits.textContent = GS.credits;
+  els.hp.style.width = clamp(GS.hp/CFG.START_HP,0,1)*100 + '%';
+  els.hpText.textContent = `${Math.max(0,Math.round(GS.hp))} / ${CFG.START_HP}`;
+  els.fan.style.width = clamp(GS.fanSat/CFG.START_FAN,0,1)*100 + '%';
+  els.fanText.textContent = `${Math.max(0,Math.round(GS.fanSat))}%`;
+  els.score.textContent = GS.score;
+
+  const w = WAVES[GS.waveIdx];
+  if(w){
+    els.wave.textContent = `${w.num} · ${w.name}`;
+    els.waveSub.textContent = activeVenue().name;
+  }
+  // Combo HUD
+  if(els.combo){
+    const tier = comboTier(GS.combo.count);
+    els.combo.innerHTML = `${GS.combo.count} <em>${tier.label}</em>`;
+    els.combo.classList.toggle('hot', tier.mult >= 3);
+  }
+  syncPanel();
+  syncWaveButton();
+  syncCtxMenu();
+}
+function pulseComboHud(){
+  if(!els.combo || CFG.REDUCED_MOTION) return;
+  els.combo.classList.remove('pulse');
+  // Force reflow to restart animation
+  void els.combo.offsetWidth;
+  els.combo.classList.add('pulse');
+}
+
+function buildPanel(){
+  const grid = document.getElementById('tower-grid');
+  grid.innerHTML = '';
+  TOWER_ORDER.forEach((key)=>{
+    const cfg = TOWERS[key];
+    const btn = document.createElement('button');
+    btn.className='tower-btn';
+    btn.type='button';
+    btn.dataset.key = key;
+    btn.setAttribute('aria-pressed','false');
+    btn.setAttribute('aria-label', `${cfg.name}, cost ${cfg.cost[0]}, hotkey ${cfg.hotkey}`);
+    btn.setAttribute('title', `${cfg.name} — ${cfg.short}`);
+    btn.innerHTML = `
+      <span class="thotkey">${cfg.hotkey}</span>
+      <span class="tglyph"><canvas width="88" height="88" data-tkey="${key}"></canvas></span>
+      <span class="tname">${shortName(cfg.name)}</span>
+      <span class="tcost">$${cfg.cost[0]}</span>
+    `;
+    btn.addEventListener('click', ()=>{ unlockAudio(); selectTowerType(key); });
+    btn.addEventListener('mouseenter', ()=>{ showDetail(key); });
+    btn.addEventListener('mouseleave', ()=>{ showDetail(GS.selectedTowerType); });
+    grid.appendChild(btn);
+  });
+  // Draw glyphs on panel canvases
+  const canvases = grid.querySelectorAll('canvas[data-tkey]');
+  canvases.forEach(c=>{
+    const k = c.dataset.tkey;
+    const cc = c.getContext('2d');
+    const w = c.width, h = c.height;
+    cc.clearRect(0,0,w,h);
+    // Draw at 2x size, centered
+    drawTowerIcon(cc, w/2, h/2 + 6, k, 1, 0, 1.6);
+  });
+  showDetail(null);
+}
+function shortName(n){
+  // shorten a couple of long names to fit tiles
+  return n.replace('Device Fingerprint Scanner','Device Scanner')
+          .replace('Suspicious Velocity Trap','Velocity Trap')
+          .replace('Purchase Limit Wall','Limit Wall')
+          .replace('Fraud Review Drone','Fraud Drone')
+          .replace('Verified Fan Shield','Fan Shield');
+}
+function syncPanel(){
+  document.querySelectorAll('.tower-btn').forEach(btn=>{
+    const key = btn.dataset.key;
+    const cfg = TOWERS[key];
+    const affordable = GS.credits >= cfg.cost[0];
+    btn.classList.toggle('locked', !affordable);
+    btn.classList.toggle('selected', GS.selectedTowerType === key);
+    btn.setAttribute('aria-pressed', GS.selectedTowerType === key ? 'true':'false');
+  });
+  showDetail(GS.selectedTowerType);
+}
+function showDetail(key){
+  const el = document.getElementById('detail');
+  if(!key){
+    document.getElementById('d-name').textContent = 'Select a defense';
+    document.getElementById('d-line').textContent = 'Tap a tower, then tap a cell beside a lane.';
+    document.getElementById('d-cost').textContent = '—';
+    document.getElementById('d-upgrade').textContent = '1–7 keys select fast · Esc to cancel';
+    el.classList.add('show');
+    return;
+  }
+  const cfg = TOWERS[key];
+  document.getElementById('d-name').textContent = cfg.name;
+  document.getElementById('d-line').textContent = cfg.short;
+  document.getElementById('d-cost').textContent = '$' + cfg.cost[0];
+  const upN = cfg.cost[1] || 0;
+  document.getElementById('d-upgrade').textContent = upN ? `Upgrade Lv2 · $${upN}` : 'Maxed';
+  el.classList.add('show');
+}
+
+function selectTowerType(key){
+  if(GS.mode==='menu') return;
+  if(GS.selectedTowerType === key){
+    GS.selectedTowerType = null;
+  } else if(GS.credits >= TOWERS[key].cost[0]){
+    GS.selectedTowerType = key;
+    hideCtxMenu();
+  } else {
+    // Insufficient funds — floaty over the credits HUD area & shake the button
+    showFloaty(120, 90, `Need $${TOWERS[key].cost[0]}`, COLORS.bad, 1.4);
+    const btn = document.querySelector(`.tower-btn[data-key="${key}"]`);
+    if(btn && !CFG.REDUCED_MOTION){
+      btn.animate([
+        {transform:'translateX(0)'},
+        {transform:'translateX(-4px)'},
+        {transform:'translateX(4px)'},
+        {transform:'translateX(0)'},
+      ], {duration:220});
+    }
+  }
+  syncPanel();
+}
+
+function selectPlacedTower(t){
+  GS.selectedTower = t;
+  showCtxMenu(t);
+}
+function showCtxMenu(t){
+  const cfg = TOWERS[t.key];
+  els.ctxName.textContent = cfg.name;
+  els.ctxLvl.textContent = `Lv ${t.level}`;
+  els.ctxDmg.textContent = cfg.damage[t.level-1] || '—';
+  els.ctxRng.textContent = cfg.range[t.level-1];
+  const wrapRect = canvasWrap.getBoundingClientRect();
+  const cRect = canvas.getBoundingClientRect();
+  const x = cRect.left - wrapRect.left + (t.x/CFG.DESIGN_W)*cRect.width + 16;
+  const y = cRect.top  - wrapRect.top  + (t.y/CFG.DESIGN_H)*cRect.height - 20;
+  els.ctx.style.left = clamp(x, 8, wrapRect.width - 180) + 'px';
+  els.ctx.style.top  = clamp(y, 8, wrapRect.height - 120) + 'px';
+  els.ctx.classList.add('show');
+  syncCtxMenu();
+}
+function hideCtxMenu(){
+  els.ctx.classList.remove('show');
+  GS.selectedTower = null;
+}
+function syncCtxMenu(){
+  if(!GS.selectedTower) return;
+  const t = GS.selectedTower;
+  const cfg = TOWERS[t.key];
+  els.ctxUp.disabled = (t.level >= 3) || (GS.credits < (cfg.cost[t.level]||0));
+  els.ctxUp.textContent = t.level >= 3 ? 'Maxed' : `Upgrade $${cfg.cost[t.level]}`;
+}
+els.ctxUp.addEventListener('click', ()=>{ if(GS.selectedTower) upgradeTower(GS.selectedTower); });
+els.ctxSell.addEventListener('click', ()=>{ if(GS.selectedTower) sellTower(GS.selectedTower); });
+
+/* Banner */
+let bannerTimer = 0;
+function showBanner(w){
+  els.bannerNum.textContent = `Wave ${w.num}`;
+  els.bannerName.textContent = w.name;
+  els.bannerHint.textContent = w.hint;
+  els.banner.classList.add('show');
+  bannerTimer = 2.0;
+}
+function tickBanner(dt){
+  if(bannerTimer>0){
+    bannerTimer -= dt;
+    if(bannerTimer<=0) els.banner.classList.remove('show');
+  }
+}
+
+/* Wave button behavior */
+function syncWaveButton(){
+  const w = WAVES[GS.waveIdx];
+  if(!w){ els.btnWave.style.display='none'; return; }
+  els.btnWave.style.display='';
+  if(GS.waveRunning){
+    els.btnWave.disabled = true;
+    els.btnWave.textContent = `Wave ${w.num} in progress…`;
+  } else {
+    els.btnWave.disabled = false;
+    els.btnWave.textContent = `Start Wave ${w.num}`;
+  }
+}
+els.btnWave.addEventListener('click', ()=>{
+  unlockAudio();
+  if(GS.mode==='menu') startGame();
+  else if(!GS.waveRunning) startWave();
+});
+els.btnRestart.addEventListener('click', ()=>{ if(confirm('Restart the game?')) restart(); });
+
+/* Overlays */
+function showOverlay(html){
+  els.overlayCard.innerHTML = html;
+  els.overlay.classList.add('show');
+}
+function hideOverlay(){ els.overlay.classList.remove('show'); }
+
+// Runtime palette read by render() — patched by applyVenueTheme.
+const RUNTIME_PALETTE = {
+  bg0: VENUES.truetix.bg0,
+  bg1: VENUES.truetix.bg1,
+  laneEven: VENUES.truetix.laneEven,
+  laneOdd: VENUES.truetix.laneOdd,
+  accent: VENUES.truetix.accent,
+  vaultGlow: VENUES.truetix.vaultGlow,
+};
+
+function applyVenueTheme(v){
+  RUNTIME_PALETTE.bg0 = v.bg0;
+  RUNTIME_PALETTE.bg1 = v.bg1;
+  RUNTIME_PALETTE.laneEven = v.laneEven;
+  RUNTIME_PALETTE.laneOdd = v.laneOdd;
+  RUNTIME_PALETTE.accent = v.accent;
+  RUNTIME_PALETTE.vaultGlow = v.vaultGlow;
+}
+
+function startGame(){
+  hideOverlay();
+  GS.mode='playing';
+  // Snapshot the currently selected venue's modifier
+  const v = activeVenue();
+  GS.modifier = v.modifier;
+  applyVenueTheme(v);
+  buildPanel();
+  updateUI();
+}
+
+function showStartScreen(){
+  const records = normalizeRecords(loadRecords() || emptyRecords());
+  const neonUnlocked = !!records.neonUnlocked;
+  GS.venueUnlocks = { neon: neonUnlocked };
+  const cur = GS.venueKey || 'truetix';
+  const rec = venueRecord(records, cur);   // records for the SELECTED venue
+  const venueSel = `
+    <div class="sub" style="margin-top:8px">Choose Venue</div>
+    <div class="venue-select">
+      <button data-venue="truetix" class="${cur==='truetix'?'active':''}">
+        <b>TrueTix Onsale Zone</b>
+        <i>${VENUES.truetix.short}</i>
+      </button>
+      <button data-venue="neon" class="neon ${cur==='neon'?'active':''} ${neonUnlocked?'':'locked'}" ${neonUnlocked?'':'disabled aria-disabled="true"'}>
+        <b>${neonUnlocked ? 'Neon Arena Gate' : 'Neon Arena Gate 🔒'}</b>
+        <i>${neonUnlocked ? VENUES.neon.short : 'Unlock by winning Wave 6'}</i>
+      </button>
+    </div>
+  `;
+  const stats = `
+    <div class="sub" style="margin-top:8px">${activeVenue().name} — Local Best · This Device</div>
+    <div class="best-row">
+      <div><span>Best score</span><b>${(rec.bestScore||0).toLocaleString()}</b></div>
+      <div><span>Best medal</span><b>${(rec.bestMedal||'—').toUpperCase()}</b></div>
+      <div><span>Highest combo</span><b>${rec.highestCombo||0}</b></div>
+      <div><span>Max multiplier</span><b>x${rec.maxMult||1}</b></div>
+      <div><span>Runs / Wins</span><b>${(rec.totalWins||0)}/${(rec.totalRuns||0)}</b></div>
+    </div>
+  `;
+  showOverlay(`
     <h1>Bot Busters: Ticket Defense</h1>
-    <p class="subtitle">Protect the fans. Block the bots. Defend the onsale.</p>
-
-    <!-- HUD -->
-    <div id="hud">
-        <div class="hud-item">
-            <span class="hud-label">Currency</span>
-            <span class="hud-value currency" id="currency-display">500</span>
-        </div>
-        <div class="hud-item">
-            <span class="hud-label">Ticket Inventory</span>
-            <span class="hud-value health" id="health-display">100%</span>
-            <div class="bar-container">
-                <div class="bar-fill health-bar" id="health-bar" style="width: 100%"></div>
-            </div>
-        </div>
-        <div class="hud-item">
-            <span class="hud-label">Fan Satisfaction</span>
-            <span class="hud-value satisfaction" id="satisfaction-display">100%</span>
-            <div class="bar-container">
-                <div class="bar-fill satisfaction-bar" id="satisfaction-bar" style="width: 100%"></div>
-            </div>
-        </div>
-        <div class="hud-item">
-            <span class="hud-label">Wave</span>
-            <span class="hud-value wave" id="wave-display">1 / 6</span>
-        </div>
+    <div class="sub">Protect the fans. Bust the bots.</div>
+    <p style="font-size:13px;line-height:1.4;color:#c8d6ee;margin:6px 0 6px 0">
+      Place defenses beside the lanes. Survive six waves.
+      Streak bot kills for a bigger combo multiplier. <b>Do not</b> harm the fans.
+    </p>
+    ${venueSel}
+    ${stats}
+    <div class="actions">
+      <button class="btn primary" id="ovr-start-run">Start Run</button>
     </div>
+  `);
+  // Wire venue buttons
+  document.querySelectorAll('.venue-select button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const key = btn.dataset.venue;
+      if(btn.classList.contains('locked')) return;
+      GS.venueKey = key;
+      applyVenueTheme(VENUES[key] || VENUES.truetix); // live palette preview behind overlay
+      showStartScreen();
+    });
+  });
+  document.getElementById('ovr-start-run').addEventListener('click', ()=>{
+    unlockAudio();
+    startGame();
+  });
+}
 
-    <!-- Game Container -->
-    <div id="game-container">
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
+/* End screens */
+/* Medal tier for a completed run. */
+function computeMedal(win){
+  if(!win) return null;
+  const hp = GS.hp, sat = GS.fanSat, harmed = GS.stats.fansHarmed;
+  if(harmed === 0 && hp >= 90) return { key:'perfect', label:'PERFECT',  color:'#fff3a8', accent:'#ffd23f' };
+  if(hp >= 75 && sat >= 80)    return { key:'gold',    label:'GOLD',     color:'#ffd23f', accent:'#c9a51e' };
+  if(hp >= 50)                 return { key:'silver',  label:'SILVER',   color:'#d6dcea', accent:'#8ea3c7' };
+  return                                { key:'bronze', label:'BRONZE',  color:'#e39a5e', accent:'#9a6a3f' };
+}
 
-        <!-- Defense Panel -->
-        <div id="defense-panel">
-            <h3>DEFENSES</h3>
-            <div id="defense-buttons"></div>
-        </div>
+const MEDAL_ORDER = ['bronze','silver','gold','perfect'];
+function medalRank(k){ return MEDAL_ORDER.indexOf(k); }
 
-        <!-- Wave Banner -->
-        <div id="wave-banner">
-            <h2 id="wave-title">Wave 1</h2>
-            <p id="wave-desc">Basic Bots incoming!</p>
-        </div>
+/* ----------------------------------------------------------------------------
+ * RECORDS — per-venue, versioned, localStorage-safe.
+ * v3 schema:
+ *   { version:3, neonUnlocked:bool, venues:{ truetix:{...}, neon:{...} } }
+ * Each venue record:
+ *   { bestScore, bestMedal, bestHp, bestFanSat, mostFansSafe, fewestFansHarmed,
+ *     highestCombo, maxMult, bestWaveReached, totalWins, totalRuns }
+ * -------------------------------------------------------------------------- */
+const RECORDS_KEY = 'botbusters.records.v3';
+const RECORDS_V2_KEY = 'botbusters.records.v2';
+const RECORDS_LEGACY_KEY = 'botbusters.best';
 
-        <!-- Start Wave Button -->
-        <button id="start-wave-btn">Start Wave 1</button>
+function emptyVenueRecord(){
+  return {
+    bestScore:0, bestMedal:null, bestHp:0, bestFanSat:0,
+    mostFansSafe:0, fewestFansHarmed:null,
+    highestCombo:0, maxMult:1, bestWaveReached:0,
+    totalWins:0, totalRuns:0,
+  };
+}
+function emptyRecords(){
+  return {
+    version:3,
+    neonUnlocked:false,
+    venues:{ truetix: emptyVenueRecord(), neon: emptyVenueRecord() },
+  };
+}
+/* Ensure a loaded object has the full v3 shape (defends against partial/corrupt). */
+function normalizeRecords(obj){
+  const base = emptyRecords();
+  if(!obj || typeof obj !== 'object') return base;
+  base.neonUnlocked = !!obj.neonUnlocked;
+  const src = (obj.venues && typeof obj.venues === 'object') ? obj.venues : {};
+  for(const key of ['truetix','neon']){
+    const v = (src[key] && typeof src[key] === 'object') ? src[key] : {};
+    const rec = emptyVenueRecord();
+    rec.bestScore        = Number(v.bestScore)||0;
+    rec.bestMedal        = (typeof v.bestMedal === 'string') ? v.bestMedal : null;
+    rec.bestHp           = Number(v.bestHp)||0;
+    rec.bestFanSat       = Number(v.bestFanSat)||0;
+    rec.mostFansSafe     = Number(v.mostFansSafe)||0;
+    rec.fewestFansHarmed = (v.fewestFansHarmed===null || v.fewestFansHarmed===undefined) ? null : (Number(v.fewestFansHarmed)||0);
+    rec.highestCombo     = Number(v.highestCombo)||0;
+    rec.maxMult          = Number(v.maxMult)||1;
+    rec.bestWaveReached  = Number(v.bestWaveReached)||0;
+    rec.totalWins        = Number(v.totalWins)||0;
+    rec.totalRuns        = Number(v.totalRuns)||0;
+    base.venues[key] = rec;
+  }
+  return base;
+}
 
-        <!-- Tooltip -->
-        <div id="tooltip">
-            <h4 id="tooltip-title">Tower</h4>
-            <p id="tooltip-desc">Description</p>
-        </div>
+function loadRecords(){
+  try {
+    const raw = localStorage.getItem(RECORDS_KEY);
+    if(raw){
+      let parsed;
+      try { parsed = JSON.parse(raw); }
+      catch(parseErr){
+        // Corrupt JSON — reset to defaults rather than crash or wipe blindly.
+        const fresh = emptyRecords();
+        try { localStorage.setItem(RECORDS_KEY, JSON.stringify(fresh)); } catch(e){}
+        return fresh;
+      }
+      return normalizeRecords(parsed);
+    }
+    // Migrate v2 → v3 (v2 was global; treat as TrueTix).
+    const v2Raw = localStorage.getItem(RECORDS_V2_KEY);
+    if(v2Raw){
+      let v2;
+      try { v2 = JSON.parse(v2Raw); } catch(e){ v2 = null; }
+      if(v2){
+        const out = emptyRecords();
+        out.neonUnlocked = !!v2.neonUnlocked;
+        const t = out.venues.truetix;
+        t.bestScore        = Number(v2.bestScore)||0;
+        t.bestMedal        = (typeof v2.bestMedal==='string') ? v2.bestMedal : null;
+        t.bestHp           = Number(v2.bestHp)||0;
+        t.bestFanSat       = Number(v2.bestFanSat)||0;
+        t.mostFansSafe     = Number(v2.mostFansSafe)||0;
+        t.fewestFansHarmed = (v2.fewestFansHarmed===null||v2.fewestFansHarmed===undefined)?null:(Number(v2.fewestFansHarmed)||0);
+        t.highestCombo     = Number(v2.highestCombo)||0;
+        t.maxMult          = 1; // v2 didn't track multiplier
+        t.bestWaveReached  = Number(v2.bestWaveReached)||0;
+        t.totalWins        = Number(v2.totalWins)||0;
+        t.totalRuns        = Number(v2.totalRuns)||0;
+        try { localStorage.setItem(RECORDS_KEY, JSON.stringify(out)); } catch(e){}
+        return out;
+      }
+    }
+    // Migrate ancient legacy single-record.
+    const legacyRaw = localStorage.getItem(RECORDS_LEGACY_KEY);
+    if(legacyRaw){
+      let legacy;
+      try { legacy = JSON.parse(legacyRaw); } catch(e){ legacy = null; }
+      if(legacy){
+        const out = emptyRecords();
+        out.neonUnlocked = (legacy.waveReached||0) >= 6;
+        const t = out.venues.truetix;
+        t.bestScore = Number(legacy.score)||0;
+        t.bestMedal = (typeof legacy.medal==='string') ? legacy.medal : null;
+        t.bestHp = Number(legacy.hp)||0;
+        t.mostFansSafe = Number(legacy.fansSafe)||0;
+        t.bestWaveReached = Number(legacy.waveReached)||0;
+        t.totalWins = legacy.medal ? 1 : 0;
+        t.totalRuns = 1;
+        try { localStorage.setItem(RECORDS_KEY, JSON.stringify(out)); } catch(e){}
+        return out;
+      }
+    }
+    return null;
+  } catch(e){ return null; }
+}
+function saveRecords(rec){
+  try { localStorage.setItem(RECORDS_KEY, JSON.stringify(rec)); } catch(e){ /* private/blocked */ }
+}
+/* Convenience: get the venue record for the currently selected venue. */
+function venueRecord(records, venueKey){
+  const r = records || emptyRecords();
+  return (r.venues && r.venues[venueKey]) || emptyVenueRecord();
+}
+
+function updateRecords({win, medal}){
+  const records = normalizeRecords(loadRecords() || emptyRecords());
+  const venueKey = GS.venueKey || 'truetix';
+  const prev = { ...venueRecord(records, venueKey) };
+  const out = { ...prev };
+  const flags = {};
+  out.totalRuns = (prev.totalRuns||0) + 1;
+  if(win) out.totalWins = (prev.totalWins||0) + 1;
+
+  const s = GS.score;
+  if(s > (prev.bestScore||0)){ out.bestScore = s; flags.bestScore = true; }
+  if(medal && medalRank(medal.key) > medalRank(prev.bestMedal || '')){
+    out.bestMedal = medal.key; flags.bestMedal = true;
+  } else if(!prev.bestMedal && medal){ out.bestMedal = medal.key; }
+  if(win){
+    if(GS.hp > (prev.bestHp||0)){ out.bestHp = Math.round(GS.hp); flags.bestHp = true; }
+    if(GS.fanSat > (prev.bestFanSat||0)){ out.bestFanSat = Math.round(GS.fanSat); flags.bestFanSat = true; }
+  }
+  if(GS.stats.fansSafe > (prev.mostFansSafe||0)){ out.mostFansSafe = GS.stats.fansSafe; flags.mostFansSafe = true; }
+  if(prev.fewestFansHarmed === null || GS.stats.fansHarmed < prev.fewestFansHarmed){
+    out.fewestFansHarmed = GS.stats.fansHarmed; flags.fewestFansHarmed = true;
+  }
+  if(GS.stats.highestCombo > (prev.highestCombo||0)){ out.highestCombo = GS.stats.highestCombo; flags.highestCombo = true; }
+  if(GS.stats.maxMult > (prev.maxMult||1)){ out.maxMult = GS.stats.maxMult; flags.maxMult = true; }
+  if(GS.stats.waveReached > (prev.bestWaveReached||0)){ out.bestWaveReached = GS.stats.waveReached; flags.bestWaveReached = true; }
+
+  records.venues[venueKey] = out;
+  // Neon unlock — only on a genuine Wave 6 victory, never on game over.
+  if(win && GS.stats.waveReached >= 6 && !records.neonUnlocked){
+    records.neonUnlocked = true; flags.neonUnlocked = true;
+  }
+  saveRecords(records);
+  return { prev, next: out, flags, records };
+}
+
+function buildResultText(win, medal){
+  const s = GS.stats;
+  // Title-case the medal for prose ("Bronze medal"), not the SCREAMING label.
+  const medalName = medal ? (medal.label.charAt(0) + medal.label.slice(1).toLowerCase() + ' medal') : (win ? 'no medal' : 'no medal');
+  const venueName = activeVenue().name;
+  const outcome = win
+    ? `I secured ${venueName} in Bot Busters: Ticket Defense`
+    : `I fell on Wave ${s.waveReached} at ${venueName} in Bot Busters: Ticket Defense`;
+  return `${outcome} — ${medalName} · ${GS.score.toLocaleString()} pts · ${s.botsDestroyed} bots busted · ${s.fansSafe} fans protected · ${s.highestCombo} combo · x${s.maxMult} max multiplier. Can you beat my run?`;
+}
+
+async function copyResultText(text){
+  try {
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch(e){}
+  // Legacy fallback: temp textarea + execCommand
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.top='-1000px';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0,text.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(ok) return true;
+  } catch(e){}
+  return false;
+}
+
+function scoreBreakdownHtml(){
+  const b = GS.breakdown;
+  const total = GS.score;
+  const rows = [
+    ['Bots Busted', b.botsBase],
+    ['Combo Bonus', b.comboBonus],
+    ['Fans Protected', b.fansSafe],
+    ['Verified Fan Bonus', b.verifiedBonus],
+    ['Resale Bonus', b.resaleBonus],
+    ['Wave Clear', b.waveClearBase],
+    ['Clean Entry', b.cleanEntry],
+  ];
+  const rowHtml = rows
+    .filter(([_,v]) => v !== 0)
+    .map(([k,v]) => `<div class="brow"><span>${k}</span><b>+${v.toLocaleString()}</b></div>`)
+    .join('');
+  const penaltyRow = b.penalties !== 0
+    ? `<div class="brow penalty"><span>Leak / Harm Penalties</span><b>${b.penalties.toLocaleString()}</b></div>`
+    : '';
+  return `
+    <div class="breakdown">
+      ${rowHtml}
+      ${penaltyRow}
+      <div class="brow total"><span>Final Score</span><b>${total.toLocaleString()}</b></div>
     </div>
+  `;
+}
 
-    <!-- Overlay (Game Over / Victory) -->
-    <div id="overlay">
-        <div class="overlay-content" id="overlay-content">
-            <h2 id="overlay-title">Victory!</h2>
-            <div class="stats" id="stats"></div>
-            <button id="restart-btn">Play Again</button>
-        </div>
+function endGame(win, reason){
+  GS.mode = win ? 'win' : 'lose';
+  GS.running = false;
+  sfxGameOver();
+  const stats = GS.stats;
+  const medal = computeMedal(win);
+  const info = updateRecords({win, medal});
+  const prev = info.prev;
+  const flags = info.flags;
+  const nextRec = info.next;
+
+  const title = win ? 'ONSALE SECURED' : 'DEFENSE BREACH';
+  const sub   = win ? 'All six waves defeated. The fans got in. The bots did not.' : (reason || 'Game over');
+  const neonJustUnlocked = flags.neonUnlocked;
+  const teaser = neonJustUnlocked ? `<div class="tease">New Venue Unlocked: <b>Neon Arena Gate</b></div>` : '';
+  const medalHtml = medal ? `
+    <div class="medal medal-${medal.key}" aria-label="Medal: ${medal.label}">
+      <span class="medal-ring" style="--m:${medal.color};--m2:${medal.accent}"></span>
+      <span class="medal-label">${medal.label}</span>
     </div>
-
-    <!-- Instructions -->
-    <div id="instructions">
-        Click a defense to select, then click on a green placement cell to build.
-        Let fans (blue) through while stopping bots (red)!
+  ` : '';
+  const newBadge = (k) => flags[k] ? '<i class="new-best">NEW</i>' : '';
+  const localHeader = `<div class="sub" style="margin-top:6px">${activeVenue().name} — Local Best · This Device</div>`;
+  const bestHtml = `
+    ${localHeader}
+    <div class="best-row">
+      <div><span>Best score</span><b>${(nextRec.bestScore||0).toLocaleString()}</b>${newBadge('bestScore')}</div>
+      <div><span>Best medal</span><b>${(nextRec.bestMedal || '—').toUpperCase()}</b>${newBadge('bestMedal')}</div>
+      <div><span>Highest combo</span><b>${nextRec.highestCombo||0}</b>${newBadge('highestCombo')}</div>
+      <div><span>Max multiplier</span><b>x${nextRec.maxMult||1}</b>${newBadge('maxMult')}</div>
+      <div><span>Runs / Wins</span><b>${nextRec.totalWins}/${nextRec.totalRuns}</b></div>
     </div>
-
-    <script>
-        /* ============================================
-           GAME CONFIGURATION
-           ============================================ */
-        const CONFIG = {
-            CANVAS_WIDTH: 800,
-            CANVAS_HEIGHT: 600,
-            CELL_SIZE: 50,
-            LANE_COUNT: 4,
-            FPS: 60,
-            STARTING_CURRENCY: 500,
-            STARTING_HEALTH: 100,
-            STARTING_SATISFACTION: 100,
-            FAN_SATISFACTION_PENALTY: 15,
-            FAN_DELIVERY_BONUS: 25,
-            BOT_KILL_REWARD: 20,
-        };
-
-        /* ============================================
-           DEFENSE DEFINITIONS
-           ============================================ */
-        const DEFENSE_TYPES = {
-            CAPTCHA_CANNON: {
-                name: 'CAPTCHA Cannon',
-                icon: '🎯',
-                cost: 100,
-                damage: 25,
-                range: 120,
-                cooldown: 1000,
-                description: 'Standard single-target damage tower',
-                color: '#ff6b6b',
-                projectileColor: '#ff0000',
-            },
-            VERIFIED_FAN_SHIELD: {
-                name: 'Verified Fan Shield',
-                icon: '🛡️',
-                cost: 75,
-                damage: 0,
-                range: 100,
-                cooldown: 500,
-                description: 'Tags fans as verified, boosts their speed',
-                color: '#00c8ff',
-                projectileColor: '#00c8ff',
-            },
-            DEVICE_FINGERPRINT: {
-                name: 'Device Scanner',
-                icon: '🔍',
-                cost: 150,
-                damage: 0,
-                range: 130,
-                cooldown: 2000,
-                description: 'Reveals disguised Account Takeover Bots',
-                color: '#ffd700',
-                projectileColor: '#ffd700',
-            },
-            PURCHASE_LIMIT_WALL: {
-                name: 'Limit Wall',
-                icon: '🧱',
-                cost: 125,
-                damage: 0,
-                range: 90,
-                cooldown: 100,
-                description: 'Slows all bots in range',
-                color: '#ff9800',
-                slowFactor: 0.5,
-            },
-            VELOCITY_TRAP: {
-                name: 'Velocity Trap',
-                icon: '⚡',
-                cost: 175,
-                damage: 50,
-                range: 100,
-                cooldown: 1500,
-                description: 'Heavy damage to fast-moving entities',
-                color: '#9c27b0',
-                projectileColor: '#9c27b0',
-                speedThreshold: 1.5,
-            },
-            RESALE_MONITOR: {
-                name: 'Resale Monitor',
-                icon: '💰',
-                cost: 200,
-                damage: 15,
-                range: 110,
-                cooldown: 1200,
-                description: 'Bonus currency for nearby bot kills',
-                color: '#4caf50',
-                projectileColor: '#4caf50',
-                bonusCurrency: 10,
-            },
-            FRAUD_DRONE: {
-                name: 'Fraud Drone',
-                icon: '🚁',
-                cost: 250,
-                damage: 0,
-                range: 80,
-                cooldown: 3000,
-                description: 'Mobile defense that stuns bots',
-                color: '#00bcd4',
-                stunDuration: 2000,
-                patrolSpeed: 1,
-            },
-        };
-
-        /* ============================================
-           ENTITY DEFINITIONS
-           ============================================ */
-        const ENTITY_TYPES = {
-            REAL_FAN: {
-                name: 'Real Fan',
-                speed: 0.8,
-                health: 30,
-                color: '#00c8ff',
-                icon: '👤',
-                isFan: true,
-                reward: 0,
-            },
-            BASIC_BOT: {
-                name: 'Basic Bot',
-                speed: 1.5,
-                health: 40,
-                color: '#ff4444',
-                icon: '🤖',
-                isFan: false,
-                reward: 20,
-                damage: 10,
-            },
-            SWARM_BOT: {
-                name: 'Swarm Bot',
-                speed: 1.3,
-                health: 25,
-                color: '#ff6666',
-                icon: '🤖',
-                isFan: false,
-                reward: 15,
-                damage: 5,
-            },
-            ACCOUNT_TAKEOVER: {
-                name: 'Account Takeover Bot',
-                speed: 1.0,
-                health: 50,
-                color: '#ff4444',
-                disguisedColor: '#00c8ff',
-                icon: '🤖',
-                disguisedIcon: '👤',
-                isFan: false,
-                isDisguised: true,
-                reward: 35,
-                damage: 15,
-            },
-            PROXY_BOT: {
-                name: 'Proxy Bot',
-                speed: 1.4,
-                health: 35,
-                color: '#ff8800',
-                icon: '🤖',
-                isFan: false,
-                reward: 25,
-                damage: 8,
-                canSwitchLanes: true,
-            },
-            FAKE_IDENTITY: {
-                name: 'Fake Identity Farm',
-                speed: 0.9,
-                health: 80,
-                color: '#cc00cc',
-                icon: '🏭',
-                isFan: false,
-                reward: 40,
-                damage: 20,
-                spawnsOnDeath: 3,
-            },
-            MINI_BOT: {
-                name: 'Mini Bot',
-                speed: 1.8,
-                health: 15,
-                color: '#ff66ff',
-                icon: '🤖',
-                isFan: false,
-                reward: 8,
-                damage: 3,
-            },
-            LAST_SECOND: {
-                name: 'Last-Second Bot',
-                speed: 3.0,
-                health: 30,
-                color: '#ff0000',
-                icon: '💨',
-                isFan: false,
-                reward: 50,
-                damage: 25,
-            },
-        };
-
-        /* ============================================
-           WAVE DEFINITIONS
-           ============================================ */
-        const WAVES = [
-            {
-                number: 1,
-                name: 'Basic Bot Attack',
-                description: 'Simple bots are flooding the queue!',
-                spawns: [
-                    { type: 'BASIC_BOT', count: 8, interval: 1500 },
-                    { type: 'REAL_FAN', count: 4, interval: 3000, delay: 2000 },
-                ],
-            },
-            {
-                number: 2,
-                name: 'Coordinated Swarm',
-                description: 'Bots are attacking in formation!',
-                spawns: [
-                    { type: 'SWARM_BOT', count: 16, interval: 800, swarmSize: 4 },
-                    { type: 'REAL_FAN', count: 6, interval: 2500, delay: 1000 },
-                    { type: 'BASIC_BOT', count: 4, interval: 2000, delay: 5000 },
-                ],
-            },
-            {
-                number: 3,
-                name: 'Account Takeover',
-                description: 'Warning: Bots are disguising as real fans!',
-                spawns: [
-                    { type: 'ACCOUNT_TAKEOVER', count: 6, interval: 2500 },
-                    { type: 'REAL_FAN', count: 8, interval: 2000, delay: 500 },
-                    { type: 'BASIC_BOT', count: 6, interval: 1800, delay: 3000 },
-                ],
-            },
-            {
-                number: 4,
-                name: 'Proxy Network',
-                description: 'Bots are switching lanes to dodge defenses!',
-                spawns: [
-                    { type: 'PROXY_BOT', count: 8, interval: 2000 },
-                    { type: 'SWARM_BOT', count: 8, interval: 1200, delay: 2000 },
-                    { type: 'REAL_FAN', count: 6, interval: 2500, delay: 1500 },
-                    { type: 'ACCOUNT_TAKEOVER', count: 3, interval: 3000, delay: 4000 },
-                ],
-            },
-            {
-                number: 5,
-                name: 'Identity Farm Raid',
-                description: 'Destroying these bots spawns more bots!',
-                spawns: [
-                    { type: 'FAKE_IDENTITY', count: 5, interval: 4000 },
-                    { type: 'PROXY_BOT', count: 4, interval: 2500, delay: 2000 },
-                    { type: 'REAL_FAN', count: 8, interval: 2000, delay: 1000 },
-                    { type: 'BASIC_BOT', count: 6, interval: 1500, delay: 6000 },
-                ],
-            },
-            {
-                number: 6,
-                name: 'FINAL WAVE: Last-Second Assault',
-                description: 'Everything they have - all at once!',
-                spawns: [
-                    { type: 'LAST_SECOND', count: 6, interval: 3000 },
-                    { type: 'FAKE_IDENTITY', count: 3, interval: 5000, delay: 2000 },
-                    { type: 'ACCOUNT_TAKEOVER', count: 5, interval: 2500, delay: 1000 },
-                    { type: 'PROXY_BOT', count: 6, interval: 2000, delay: 3000 },
-                    { type: 'SWARM_BOT', count: 12, interval: 1000, delay: 5000, swarmSize: 4 },
-                    { type: 'REAL_FAN', count: 10, interval: 1800, delay: 500 },
-                ],
-            },
-        ];
-
-        /* ============================================
-           GAME STATE
-           ============================================ */
-        const gameState = {
-            currency: CONFIG.STARTING_CURRENCY,
-            health: CONFIG.STARTING_HEALTH,
-            satisfaction: CONFIG.STARTING_SATISFACTION,
-            currentWave: 0,
-            waveInProgress: false,
-            gameOver: false,
-            victory: false,
-            selectedDefense: null,
-            entities: [],
-            defenses: [],
-            projectiles: [],
-            effects: [],
-            placementCells: [],
-            lanes: [],
-            stats: {
-                botsDestroyed: 0,
-                fansProtected: 0,
-                fansLost: 0,
-                totalCurrencyEarned: 0,
-            },
-            spawnTimers: [],
-            lastTime: 0,
-        };
-
-        /* ============================================
-           CANVAS SETUP
-           ============================================ */
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-
-        /* ============================================
-           SOUND STUBS
-           ============================================ */
-        const Sound = {
-            placeDefense: () => { /* stub */ },
-            destroyBot: () => { /* stub */ },
-            fanReachSafety: () => { /* stub */ },
-            waveStart: () => { /* stub */ },
-            gameOver: () => { /* stub */ },
-        };
-
-        /* ============================================
-           INITIALIZATION
-           ============================================ */
-        function initGame() {
-            gameState.currency = CONFIG.STARTING_CURRENCY;
-            gameState.health = CONFIG.STARTING_HEALTH;
-            gameState.satisfaction = CONFIG.STARTING_SATISFACTION;
-            gameState.currentWave = 0;
-            gameState.waveInProgress = false;
-            gameState.gameOver = false;
-            gameState.victory = false;
-            gameState.selectedDefense = null;
-            gameState.entities = [];
-            gameState.defenses = [];
-            gameState.projectiles = [];
-            gameState.effects = [];
-            gameState.spawnTimers = [];
-            gameState.stats = {
-                botsDestroyed: 0,
-                fansProtected: 0,
-                fansLost: 0,
-                totalCurrencyEarned: 0,
-            };
-
-            initLanes();
-            initPlacementCells();
-            initDefenseButtons();
-            updateHUD();
-            hideOverlay();
-            updateStartButton();
-        }
-
-        function initLanes() {
-            gameState.lanes = [];
-            const laneSpacing = CONFIG.CANVAS_HEIGHT / (CONFIG.LANE_COUNT + 1);
-
-            for (let i = 0; i < CONFIG.LANE_COUNT; i++) {
-                const y = laneSpacing * (i + 1);
-                gameState.lanes.push({
-                    index: i,
-                    y: y,
-                    startX: 0,
-                    endX: CONFIG.CANVAS_WIDTH,
-                });
-            }
-        }
-
-        function initPlacementCells() {
-            gameState.placementCells = [];
-            const cellSize = CONFIG.CELL_SIZE;
-            const cols = Math.floor(CONFIG.CANVAS_WIDTH / cellSize);
-
-            for (let col = 2; col < cols - 2; col++) {
-                for (let lane = 0; lane < CONFIG.LANE_COUNT; lane++) {
-                    const laneY = gameState.lanes[lane].y;
-                    const cellY = laneY - cellSize - 10;
-                    const cellYBelow = laneY + 10;
-
-                    gameState.placementCells.push({
-                        x: col * cellSize,
-                        y: cellY,
-                        width: cellSize,
-                        height: cellSize,
-                        occupied: false,
-                        lane: lane,
-                    });
-
-                    if (lane === CONFIG.LANE_COUNT - 1) {
-                        gameState.placementCells.push({
-                            x: col * cellSize,
-                            y: cellYBelow,
-                            width: cellSize,
-                            height: cellSize,
-                            occupied: false,
-                            lane: lane,
-                        });
-                    }
-                }
-            }
-        }
-
-        function initDefenseButtons() {
-            const container = document.getElementById('defense-buttons');
-            container.innerHTML = '';
-
-            Object.keys(DEFENSE_TYPES).forEach(key => {
-                const def = DEFENSE_TYPES[key];
-                const btn = document.createElement('button');
-                btn.className = 'defense-btn';
-                btn.dataset.type = key;
-                btn.innerHTML = `
-                    <span class="defense-icon">${def.icon}</span>
-                    <span class="defense-name">${def.name}</span>
-                    <span class="defense-cost">$${def.cost}</span>
-                    <span class="defense-desc">${def.description}</span>
-                `;
-                btn.addEventListener('click', () => selectDefense(key));
-                container.appendChild(btn);
-            });
-
-            updateDefenseButtons();
-        }
-
-        /* ============================================
-           DEFENSE SELECTION & PLACEMENT
-           ============================================ */
-        function selectDefense(type) {
-            const def = DEFENSE_TYPES[type];
-            if (gameState.currency < def.cost) return;
-
-            if (gameState.selectedDefense === type) {
-                gameState.selectedDefense = null;
-            } else {
-                gameState.selectedDefense = type;
-            }
-
-            updateDefenseButtons();
-        }
-
-        function updateDefenseButtons() {
-            const buttons = document.querySelectorAll('.defense-btn');
-            buttons.forEach(btn => {
-                const type = btn.dataset.type;
-                const def = DEFENSE_TYPES[type];
-
-                btn.classList.remove('selected', 'disabled');
-
-                if (gameState.selectedDefense === type) {
-                    btn.classList.add('selected');
-                }
-
-                if (gameState.currency < def.cost) {
-                    btn.classList.add('disabled');
-                }
-            });
-        }
-
-        function placeDefense(cell) {
-            if (!gameState.selectedDefense || cell.occupied) return;
-
-            const defType = DEFENSE_TYPES[gameState.selectedDefense];
-            if (gameState.currency < defType.cost) return;
-
-            gameState.currency -= defType.cost;
-            cell.occupied = true;
-
-            const defense = {
-                type: gameState.selectedDefense,
-                x: cell.x + cell.width / 2,
-                y: cell.y + cell.height / 2,
-                ...defType,
-                lastFired: 0,
-                level: 1,
-                patrolDirection: 1,
-                patrolOffset: 0,
-            };
-
-            gameState.defenses.push(defense);
-            Sound.placeDefense();
-
-            gameState.selectedDefense = null;
-            updateDefenseButtons();
-            updateHUD();
-        }
-
-        /* ============================================
-           ENTITY MANAGEMENT
-           ============================================ */
-        function spawnEntity(typeKey, laneIndex) {
-            const type = ENTITY_TYPES[typeKey];
-            const lane = gameState.lanes[laneIndex !== undefined ? laneIndex : Math.floor(Math.random() * CONFIG.LANE_COUNT)];
-
-            const entity = {
-                type: typeKey,
-                x: -30,
-                y: lane.y,
-                lane: lane.index,
-                speed: type.speed,
-                baseSpeed: type.speed,
-                health: type.health,
-                maxHealth: type.health,
-                color: type.color,
-                icon: type.icon,
-                isFan: type.isFan,
-                reward: type.reward || 0,
-                damage: type.damage || 0,
-                isDisguised: type.isDisguised || false,
-                disguisedColor: type.disguisedColor,
-                disguisedIcon: type.disguisedIcon,
-                canSwitchLanes: type.canSwitchLanes || false,
-                spawnsOnDeath: type.spawnsOnDeath || 0,
-                isVerified: false,
-                isStunned: false,
-                stunEndTime: 0,
-                isSlowed: false,
-                lastLaneSwitch: 0,
-            };
-
-            gameState.entities.push(entity);
-            return entity;
-        }
-
-        function spawnSwarm(typeKey, count, laneIndex) {
-            const baseLane = laneIndex !== undefined ? laneIndex : Math.floor(Math.random() * CONFIG.LANE_COUNT);
-
-            for (let i = 0; i < count; i++) {
-                const lane = (baseLane + Math.floor(i / 2)) % CONFIG.LANE_COUNT;
-                const entity = spawnEntity(typeKey, lane);
-                entity.x = -30 - (i % 2) * 40;
-            }
-        }
-
-        function updateEntities(deltaTime) {
-            const currentTime = performance.now();
-
-            for (let i = gameState.entities.length - 1; i >= 0; i--) {
-                const entity = gameState.entities[i];
-
-                if (entity.isStunned && currentTime < entity.stunEndTime) {
-                    continue;
-                } else {
-                    entity.isStunned = false;
-                }
-
-                let speed = entity.baseSpeed;
-
-                if (entity.isVerified && entity.isFan) {
-                    speed *= 1.3;
-                }
-
-                entity.isSlowed = false;
-                for (const defense of gameState.defenses) {
-                    if (defense.type === 'PURCHASE_LIMIT_WALL') {
-                        const dist = Math.hypot(entity.x - defense.x, entity.y - defense.y);
-                        if (dist < defense.range && !entity.isFan) {
-                            speed *= DEFENSE_TYPES.PURCHASE_LIMIT_WALL.slowFactor;
-                            entity.isSlowed = true;
-                            break;
-                        }
-                    }
-                }
-
-                entity.speed = speed;
-                entity.x += entity.speed * deltaTime * 0.06;
-
-                if (entity.canSwitchLanes && currentTime - entity.lastLaneSwitch > 2000) {
-                    if (Math.random() < 0.02) {
-                        const newLane = Math.floor(Math.random() * CONFIG.LANE_COUNT);
-                        entity.lane = newLane;
-                        entity.y = gameState.lanes[newLane].y;
-                        entity.lastLaneSwitch = currentTime;
-                    }
-                }
-
-                if (entity.x > CONFIG.CANVAS_WIDTH + 20) {
-                    if (entity.isFan) {
-                        gameState.stats.fansProtected++;
-                        gameState.currency += CONFIG.FAN_DELIVERY_BONUS;
-                        gameState.stats.totalCurrencyEarned += CONFIG.FAN_DELIVERY_BONUS;
-                        Sound.fanReachSafety();
-
-                        addEffect(CONFIG.CANVAS_WIDTH - 30, entity.y, '+$' + CONFIG.FAN_DELIVERY_BONUS, '#00ff88');
-                    } else {
-                        gameState.health -= entity.damage;
-                        addEffect(CONFIG.CANVAS_WIDTH - 30, entity.y, '-' + entity.damage + ' HP', '#ff4444');
-                    }
-                    gameState.entities.splice(i, 1);
-                }
-            }
-
-            updateHUD();
-            checkGameOver();
-        }
-
-        function damageEntity(entity, damage, defense) {
-            entity.health -= damage;
-
-            if (entity.health <= 0) {
-                destroyEntity(entity, defense);
-            }
-        }
-
-        function destroyEntity(entity, defense) {
-            const index = gameState.entities.indexOf(entity);
-            if (index === -1) return;
-
-            if (entity.isFan || (entity.isDisguised && entity.type === 'ACCOUNT_TAKEOVER')) {
-                if (entity.isFan || entity.isDisguised) {
-                    gameState.satisfaction -= CONFIG.FAN_SATISFACTION_PENALTY;
-                    gameState.stats.fansLost++;
-                    addEffect(entity.x, entity.y, 'Fan blocked!', '#ff6b6b');
-                }
-            }
-
-            if (!entity.isFan) {
-                let reward = entity.reward;
-
-                if (defense && defense.type === 'RESALE_MONITOR') {
-                    reward += DEFENSE_TYPES.RESALE_MONITOR.bonusCurrency;
-                }
-
-                gameState.currency += reward;
-                gameState.stats.totalCurrencyEarned += reward;
-                gameState.stats.botsDestroyed++;
-                Sound.destroyBot();
-
-                addEffect(entity.x, entity.y, '+$' + reward, '#ffd700');
-
-                if (entity.spawnsOnDeath > 0) {
-                    for (let i = 0; i < entity.spawnsOnDeath; i++) {
-                        const miniBot = spawnEntity('MINI_BOT', entity.lane);
-                        miniBot.x = entity.x + (Math.random() - 0.5) * 30;
-                    }
-                }
-            }
-
-            gameState.entities.splice(index, 1);
-            updateHUD();
-        }
-
-        /* ============================================
-           DEFENSE BEHAVIOR
-           ============================================ */
-        function updateDefenses(deltaTime) {
-            const currentTime = performance.now();
-
-            for (const defense of gameState.defenses) {
-                if (currentTime - defense.lastFired < defense.cooldown) continue;
-
-                if (defense.type === 'FRAUD_DRONE') {
-                    defense.patrolOffset += defense.patrolSpeed * deltaTime * 0.05 * defense.patrolDirection;
-                    if (Math.abs(defense.patrolOffset) > 100) {
-                        defense.patrolDirection *= -1;
-                    }
-                }
-
-                const effectiveX = defense.x + (defense.patrolOffset || 0);
-
-                for (const entity of gameState.entities) {
-                    const dist = Math.hypot(entity.x - effectiveX, entity.y - defense.y);
-
-                    if (dist > defense.range) continue;
-
-                    switch (defense.type) {
-                        case 'CAPTCHA_CANNON':
-                            if (!entity.isFan && !(entity.isDisguised && entity.type === 'ACCOUNT_TAKEOVER')) {
-                                fireProjectile(defense, entity);
-                                defense.lastFired = currentTime;
-                            }
-                            break;
-
-                        case 'VERIFIED_FAN_SHIELD':
-                            if (entity.isFan && !entity.isVerified) {
-                                entity.isVerified = true;
-                                addEffect(entity.x, entity.y - 20, 'Verified!', '#00c8ff');
-                                defense.lastFired = currentTime;
-                            }
-                            break;
-
-                        case 'DEVICE_FINGERPRINT':
-                            if (entity.isDisguised) {
-                                entity.isDisguised = false;
-                                entity.color = ENTITY_TYPES[entity.type].color;
-                                entity.icon = ENTITY_TYPES[entity.type].icon;
-                                addEffect(entity.x, entity.y - 20, 'REVEALED!', '#ffd700');
-                                defense.lastFired = currentTime;
-                            }
-                            break;
-
-                        case 'VELOCITY_TRAP':
-                            if (!entity.isFan && entity.speed >= DEFENSE_TYPES.VELOCITY_TRAP.speedThreshold) {
-                                fireProjectile(defense, entity);
-                                defense.lastFired = currentTime;
-                            }
-                            break;
-
-                        case 'RESALE_MONITOR':
-                            if (!entity.isFan && !(entity.isDisguised && entity.type === 'ACCOUNT_TAKEOVER')) {
-                                fireProjectile(defense, entity);
-                                defense.lastFired = currentTime;
-                            }
-                            break;
-
-                        case 'FRAUD_DRONE':
-                            if (!entity.isFan && !entity.isStunned && !(entity.isDisguised && entity.type === 'ACCOUNT_TAKEOVER')) {
-                                entity.isStunned = true;
-                                entity.stunEndTime = currentTime + DEFENSE_TYPES.FRAUD_DRONE.stunDuration;
-                                addEffect(entity.x, entity.y - 20, 'STUNNED!', '#00bcd4');
-                                defense.lastFired = currentTime;
-                            }
-                            break;
-                    }
-
-                    if (defense.lastFired === currentTime) break;
-                }
-            }
-        }
-
-        /* ============================================
-           PROJECTILES
-           ============================================ */
-        function fireProjectile(defense, target) {
-            gameState.projectiles.push({
-                x: defense.x + (defense.patrolOffset || 0),
-                y: defense.y,
-                targetX: target.x,
-                targetY: target.y,
-                target: target,
-                damage: defense.damage,
-                color: defense.projectileColor,
-                speed: 8,
-                defense: defense,
-            });
-        }
-
-        function updateProjectiles(deltaTime) {
-            for (let i = gameState.projectiles.length - 1; i >= 0; i--) {
-                const proj = gameState.projectiles[i];
-
-                const dx = proj.target.x - proj.x;
-                const dy = proj.target.y - proj.y;
-                const dist = Math.hypot(dx, dy);
-
-                if (dist < 15 || !gameState.entities.includes(proj.target)) {
-                    if (gameState.entities.includes(proj.target)) {
-                        damageEntity(proj.target, proj.damage, proj.defense);
-                    }
-                    gameState.projectiles.splice(i, 1);
-                    continue;
-                }
-
-                proj.x += (dx / dist) * proj.speed * deltaTime * 0.1;
-                proj.y += (dy / dist) * proj.speed * deltaTime * 0.1;
-            }
-        }
-
-        /* ============================================
-           VISUAL EFFECTS
-           ============================================ */
-        function addEffect(x, y, text, color) {
-            gameState.effects.push({
-                x,
-                y,
-                text,
-                color,
-                alpha: 1,
-                vy: -1,
-            });
-        }
-
-        function updateEffects(deltaTime) {
-            for (let i = gameState.effects.length - 1; i >= 0; i--) {
-                const effect = gameState.effects[i];
-                effect.y += effect.vy * deltaTime * 0.05;
-                effect.alpha -= 0.02;
-
-                if (effect.alpha <= 0) {
-                    gameState.effects.splice(i, 1);
-                }
-            }
-        }
-
-        /* ============================================
-           WAVE MANAGEMENT
-           ============================================ */
-        function startWave() {
-            if (gameState.waveInProgress || gameState.gameOver) return;
-
-            const wave = WAVES[gameState.currentWave];
-            if (!wave) return;
-
-            gameState.waveInProgress = true;
-            showWaveBanner(wave);
-            Sound.waveStart();
-
-            setTimeout(() => {
-                hideWaveBanner();
-
-                wave.spawns.forEach(spawn => {
-                    const delay = spawn.delay || 0;
-                    let spawned = 0;
-
-                    const timer = setInterval(() => {
-                        if (gameState.gameOver) {
-                            clearInterval(timer);
-                            return;
-                        }
-
-                        if (spawn.swarmSize) {
-                            spawnSwarm(spawn.type, spawn.swarmSize);
-                            spawned += spawn.swarmSize;
-                        } else {
-                            spawnEntity(spawn.type);
-                            spawned++;
-                        }
-
-                        if (spawned >= spawn.count) {
-                            clearInterval(timer);
-                        }
-                    }, spawn.interval);
-
-                    setTimeout(() => {
-                        gameState.spawnTimers.push(timer);
-                    }, delay);
-                });
-            }, 2500);
-
-            updateStartButton();
-        }
-
-        function checkWaveComplete() {
-            if (!gameState.waveInProgress) return;
-
-            const allSpawned = gameState.spawnTimers.every(timer => timer._idleTimeout === -1 || !timer._idleTimeout);
-
-            if (gameState.entities.length === 0 && gameState.waveInProgress) {
-                const totalExpected = WAVES[gameState.currentWave].spawns.reduce((sum, s) => sum + s.count, 0);
-                const processed = gameState.stats.botsDestroyed + gameState.stats.fansProtected + gameState.stats.fansLost;
-
-                if (processed > 0) {
-                    gameState.waveInProgress = false;
-                    gameState.currentWave++;
-                    gameState.spawnTimers = [];
-
-                    if (gameState.currentWave >= WAVES.length) {
-                        showVictory();
-                    } else {
-                        updateStartButton();
-                    }
-                }
-            }
-        }
-
-        function showWaveBanner(wave) {
-            const banner = document.getElementById('wave-banner');
-            document.getElementById('wave-title').textContent = `Wave ${wave.number}: ${wave.name}`;
-            document.getElementById('wave-desc').textContent = wave.description;
-            banner.classList.add('show');
-        }
-
-        function hideWaveBanner() {
-            document.getElementById('wave-banner').classList.remove('show');
-        }
-
-        function updateStartButton() {
-            const btn = document.getElementById('start-wave-btn');
-
-            if (gameState.gameOver || gameState.victory) {
-                btn.style.display = 'none';
-                return;
-            }
-
-            if (gameState.waveInProgress) {
-                btn.disabled = true;
-                btn.textContent = 'Wave in Progress...';
-            } else if (gameState.currentWave < WAVES.length) {
-                btn.disabled = false;
-                btn.textContent = `Start Wave ${gameState.currentWave + 1}`;
-                btn.style.display = 'block';
-            } else {
-                btn.style.display = 'none';
-            }
-        }
-
-        /* ============================================
-           GAME STATE CHECKS
-           ============================================ */
-        function checkGameOver() {
-            if (gameState.gameOver) return;
-
-            if (gameState.health <= 0) {
-                gameState.gameOver = true;
-                showDefeat('Ticket inventory depleted!');
-            } else if (gameState.satisfaction <= 0) {
-                gameState.gameOver = true;
-                showDefeat('Too many fans blocked!');
-            }
-        }
-
-        function showVictory() {
-            gameState.victory = true;
-            gameState.gameOver = true;
-
-            const overlay = document.getElementById('overlay');
-            const content = document.getElementById('overlay-content');
-            content.classList.remove('defeat');
-            content.classList.add('victory');
-
-            document.getElementById('overlay-title').textContent = 'Victory!';
-            document.getElementById('stats').innerHTML = generateStats();
-
-            overlay.classList.add('show');
-            Sound.gameOver();
-        }
-
-        function showDefeat(reason) {
-            const overlay = document.getElementById('overlay');
-            const content = document.getElementById('overlay-content');
-            content.classList.remove('victory');
-            content.classList.add('defeat');
-
-            document.getElementById('overlay-title').textContent = 'Game Over';
-            document.getElementById('stats').innerHTML = `
-                <p style="color: #ff6b6b; margin-bottom: 15px;">${reason}</p>
-                ${generateStats()}
-            `;
-
-            overlay.classList.add('show');
-            Sound.gameOver();
-        }
-
-        function generateStats() {
-            return `
-                <div class="stat-row">
-                    <span class="stat-label">Waves Survived</span>
-                    <span class="stat-value">${gameState.currentWave} / ${WAVES.length}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">Bots Destroyed</span>
-                    <span class="stat-value">${gameState.stats.botsDestroyed}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">Fans Protected</span>
-                    <span class="stat-value">${gameState.stats.fansProtected}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">Fans Lost</span>
-                    <span class="stat-value">${gameState.stats.fansLost}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">Total Earnings</span>
-                    <span class="stat-value">$${gameState.stats.totalCurrencyEarned}</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">Final Score</span>
-                    <span class="stat-value">${calculateScore()}</span>
-                </div>
-            `;
-        }
-
-        function calculateScore() {
-            return (
-                gameState.stats.botsDestroyed * 100 +
-                gameState.stats.fansProtected * 200 -
-                gameState.stats.fansLost * 150 +
-                gameState.currentWave * 500 +
-                Math.floor(gameState.health) * 10 +
-                Math.floor(gameState.satisfaction) * 10
-            );
-        }
-
-        function hideOverlay() {
-            document.getElementById('overlay').classList.remove('show');
-        }
-
-        /* ============================================
-           HUD UPDATE
-           ============================================ */
-        function updateHUD() {
-            document.getElementById('currency-display').textContent = Math.floor(gameState.currency);
-            document.getElementById('health-display').textContent = Math.max(0, Math.floor(gameState.health)) + '%';
-            document.getElementById('health-bar').style.width = Math.max(0, gameState.health) + '%';
-            document.getElementById('satisfaction-display').textContent = Math.max(0, Math.floor(gameState.satisfaction)) + '%';
-            document.getElementById('satisfaction-bar').style.width = Math.max(0, gameState.satisfaction) + '%';
-            document.getElementById('wave-display').textContent = `${gameState.currentWave + 1} / ${WAVES.length}`;
-
-            updateDefenseButtons();
-        }
-
-        /* ============================================
-           RENDERING
-           ============================================ */
-        function render() {
-            ctx.clearRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
-
-            drawBackground();
-            drawLanes();
-            drawPlacementCells();
-            drawDefenses();
-            drawEntities();
-            drawProjectiles();
-            drawEffects();
-            drawRangeIndicator();
-        }
-
-        function drawBackground() {
-            const gradient = ctx.createLinearGradient(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
-            gradient.addColorStop(0, '#1a1a2e');
-            gradient.addColorStop(1, '#16213e');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
-
-            ctx.fillStyle = 'rgba(0, 200, 255, 0.1)';
-            for (let i = 0; i < CONFIG.CANVAS_WIDTH; i += 50) {
-                ctx.fillRect(i, 0, 1, CONFIG.CANVAS_HEIGHT);
-            }
-            for (let i = 0; i < CONFIG.CANVAS_HEIGHT; i += 50) {
-                ctx.fillRect(0, i, CONFIG.CANVAS_WIDTH, 1);
-            }
-
-            ctx.fillStyle = 'rgba(0, 255, 136, 0.3)';
-            ctx.fillRect(CONFIG.CANVAS_WIDTH - 60, 0, 60, CONFIG.CANVAS_HEIGHT);
-
-            ctx.save();
-            ctx.translate(CONFIG.CANVAS_WIDTH - 30, CONFIG.CANVAS_HEIGHT / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.fillStyle = '#00ff88';
-            ctx.font = 'bold 14px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('TICKET INVENTORY', 0, 5);
-            ctx.restore();
-        }
-
-        function drawLanes() {
-            for (const lane of gameState.lanes) {
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-                ctx.lineWidth = 30;
-                ctx.setLineDash([10, 10]);
-                ctx.beginPath();
-                ctx.moveTo(0, lane.y);
-                ctx.lineTo(CONFIG.CANVAS_WIDTH - 60, lane.y);
-                ctx.stroke();
-                ctx.setLineDash([]);
-
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-                ctx.font = '12px sans-serif';
-                ctx.fillText(`Lane ${lane.index + 1}`, 10, lane.y + 4);
-            }
-        }
-
-        function drawPlacementCells() {
-            for (const cell of gameState.placementCells) {
-                if (cell.occupied) continue;
-
-                const isHovered = mousePos &&
-                    mousePos.x >= cell.x && mousePos.x < cell.x + cell.width &&
-                    mousePos.y >= cell.y && mousePos.y < cell.y + cell.height;
-
-                ctx.fillStyle = isHovered && gameState.selectedDefense
-                    ? 'rgba(0, 255, 136, 0.4)'
-                    : 'rgba(0, 255, 136, 0.15)';
-                ctx.fillRect(cell.x, cell.y, cell.width, cell.height);
-
-                ctx.strokeStyle = isHovered && gameState.selectedDefense
-                    ? '#00ff88'
-                    : 'rgba(0, 255, 136, 0.3)';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(cell.x, cell.y, cell.width, cell.height);
-            }
-        }
-
-        function drawDefenses() {
-            for (const defense of gameState.defenses) {
-                const effectiveX = defense.x + (defense.patrolOffset || 0);
-
-                ctx.fillStyle = defense.color;
-                ctx.beginPath();
-                ctx.arc(effectiveX, defense.y, 20, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                ctx.font = '20px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(defense.icon, effectiveX, defense.y);
-
-                if (defense.type === 'FRAUD_DRONE') {
-                    ctx.strokeStyle = 'rgba(0, 188, 212, 0.3)';
-                    ctx.setLineDash([5, 5]);
-                    ctx.beginPath();
-                    ctx.moveTo(defense.x - 100, defense.y);
-                    ctx.lineTo(defense.x + 100, defense.y);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
-            }
-        }
-
-        function drawEntities() {
-            for (const entity of gameState.entities) {
-                const displayColor = entity.isDisguised ? entity.disguisedColor : entity.color;
-                const displayIcon = entity.isDisguised ? entity.disguisedIcon : entity.icon;
-
-                if (entity.isSlowed) {
-                    ctx.fillStyle = 'rgba(255, 152, 0, 0.3)';
-                    ctx.beginPath();
-                    ctx.arc(entity.x, entity.y, 25, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-
-                if (entity.isStunned) {
-                    ctx.fillStyle = 'rgba(0, 188, 212, 0.4)';
-                    ctx.beginPath();
-                    ctx.arc(entity.x, entity.y, 25, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-
-                ctx.fillStyle = displayColor;
-                ctx.beginPath();
-                ctx.arc(entity.x, entity.y, 18, 0, Math.PI * 2);
-                ctx.fill();
-
-                if (entity.isVerified) {
-                    ctx.strokeStyle = '#00ff88';
-                    ctx.lineWidth = 3;
-                    ctx.stroke();
-                }
-
-                ctx.font = '16px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(displayIcon, entity.x, entity.y);
-
-                const healthPct = entity.health / entity.maxHealth;
-                if (healthPct < 1) {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                    ctx.fillRect(entity.x - 15, entity.y - 28, 30, 5);
-                    ctx.fillStyle = entity.isFan ? '#00c8ff' : '#ff4444';
-                    ctx.fillRect(entity.x - 15, entity.y - 28, 30 * healthPct, 5);
-                }
-            }
-        }
-
-        function drawProjectiles() {
-            for (const proj of gameState.projectiles) {
-                ctx.fillStyle = proj.color;
-                ctx.beginPath();
-                ctx.arc(proj.x, proj.y, 6, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.beginPath();
-                ctx.arc(proj.x, proj.y, 3, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        function drawEffects() {
-            for (const effect of gameState.effects) {
-                ctx.globalAlpha = effect.alpha;
-                ctx.fillStyle = effect.color;
-                ctx.font = 'bold 14px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(effect.text, effect.x, effect.y);
-                ctx.globalAlpha = 1;
-            }
-        }
-
-        function drawRangeIndicator() {
-            if (!gameState.selectedDefense || !mousePos) return;
-
-            const def = DEFENSE_TYPES[gameState.selectedDefense];
-
-            for (const cell of gameState.placementCells) {
-                if (cell.occupied) continue;
-
-                const isHovered =
-                    mousePos.x >= cell.x && mousePos.x < cell.x + cell.width &&
-                    mousePos.y >= cell.y && mousePos.y < cell.y + cell.height;
-
-                if (isHovered) {
-                    const centerX = cell.x + cell.width / 2;
-                    const centerY = cell.y + cell.height / 2;
-
-                    ctx.strokeStyle = def.color;
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([5, 5]);
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, def.range, 0, Math.PI * 2);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-
-                    ctx.fillStyle = def.color + '20';
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, def.range, 0, Math.PI * 2);
-                    ctx.fill();
-                    break;
-                }
-            }
-        }
-
-        /* ============================================
-           INPUT HANDLING
-           ============================================ */
-        let mousePos = null;
-
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            mousePos = {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top,
-            };
-        });
-
-        canvas.addEventListener('mouseleave', () => {
-            mousePos = null;
-        });
-
-        canvas.addEventListener('click', (e) => {
-            if (gameState.gameOver) return;
-
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-
-            for (const cell of gameState.placementCells) {
-                if (x >= cell.x && x < cell.x + cell.width &&
-                    y >= cell.y && y < cell.y + cell.height) {
-                    if (!cell.occupied && gameState.selectedDefense) {
-                        placeDefense(cell);
-                    }
-                    return;
-                }
-            }
-        });
-
-        document.getElementById('start-wave-btn').addEventListener('click', startWave);
-        document.getElementById('restart-btn').addEventListener('click', initGame);
-
-        /* ============================================
-           GAME LOOP
-           ============================================ */
-        function gameLoop(timestamp) {
-            const deltaTime = timestamp - gameState.lastTime;
-            gameState.lastTime = timestamp;
-
-            if (!gameState.gameOver) {
-                updateEntities(deltaTime);
-                updateDefenses(deltaTime);
-                updateProjectiles(deltaTime);
-                updateEffects(deltaTime);
-                checkWaveComplete();
-            }
-
-            render();
-            requestAnimationFrame(gameLoop);
-        }
-
-        initGame();
-        requestAnimationFrame(gameLoop);
-    </script>
+  `;
+
+  showOverlay(`
+    <h1>${title}</h1>
+    <div class="sub">${sub}</div>
+    ${medalHtml}
+    <div class="row"><span>Wave reached</span><b>${stats.waveReached}</b></div>
+    <div class="row"><span>Bots busted</span><b>${stats.botsDestroyed}</b></div>
+    <div class="row"><span>Fans protected</span><b>${stats.fansSafe}${stats.fansVerifiedSafe?` (${stats.fansVerifiedSafe} verified)`:''}</b></div>
+    <div class="row"><span>Fans harmed</span><b>${stats.fansHarmed}</b></div>
+    <div class="row"><span>Highest combo</span><b>${stats.highestCombo}</b></div>
+    <div class="row"><span>Max multiplier</span><b>x${stats.maxMult}</b></div>
+    <div class="row"><span>Vault HP left</span><b>${Math.max(0,Math.round(GS.hp))} / ${CFG.START_HP}</b></div>
+    <div class="row"><span>Fan satisfaction</span><b>${Math.max(0,Math.round(GS.fanSat))}%</b></div>
+    ${scoreBreakdownHtml()}
+    ${bestHtml}
+    ${teaser}
+    <div class="share-row">
+      <button class="btn" id="ovr-copy">Copy Result</button>
+      <button class="btn primary" id="ovr-restart">${win?'Play Again':'Try Again'}</button>
+    </div>
+    <div class="share-fallback" id="share-fallback" role="region" aria-live="polite">
+      <textarea id="share-text" readonly></textarea>
+      <div class="hint">Select and copy — clipboard unavailable.</div>
+    </div>
+  `);
+  const resultText = buildResultText(win, medal);
+  document.getElementById('ovr-restart').addEventListener('click', ()=>{ restart(); });
+  document.getElementById('ovr-copy').addEventListener('click', async ()=>{
+    const ok = await copyResultText(resultText);
+    const btn = document.getElementById('ovr-copy');
+    if(ok){
+      btn.textContent = 'Copied ✓';
+      setTimeout(()=>{ btn.textContent='Copy Result'; }, 1500);
+    } else {
+      const fb = document.getElementById('share-fallback');
+      const ta = document.getElementById('share-text');
+      ta.value = resultText;
+      fb.classList.add('show');
+      ta.focus(); ta.select();
+    }
+  });
+  // celebratory particle sim for the victory
+  if(win && !CFG.REDUCED_MOTION){
+    for(let i=0;i<40;i++){
+      const a = Math.random()*Math.PI*2;
+      GS.particles.push({
+        x: CFG.DESIGN_W/2 + rand(-80,80), y: CFG.DESIGN_H/2,
+        vx: Math.cos(a)*rand(80,240), vy: Math.sin(a)*rand(80,240),
+        life: .8+Math.random()*.6,
+        color: i%3===0 ? COLORS.vault : (i%3===1 ? COLORS.fanVerified : COLORS.spawn),
+        size: rand(2,4)
+      });
+    }
+  }
+}
+function victory(){
+  endGame(true);
+}
+
+/* Restart preserves venue selection + unlocks. Also resets combo, breakdown, cues. */
+function restart(){
+  const venueKey = GS.venueKey;
+  const venueUnlocks = GS.venueUnlocks;
+  Object.assign(GS, {
+    running:true, mode:'menu', // start screen shows again for venue selection
+    credits:CFG.START_CREDITS, hp:CFG.START_HP, fanSat:CFG.START_FAN, score:0,
+    waveIdx:0, waveRunning:false, waveElapsed:0,
+    spawnQueue:[], pendingSpawns:[], deferred:[],
+    entities:[], towers:[], projectiles:[], particles:[], floaties:[],
+    waveTimer:0, time:0, selectedTowerType:null, selectedTower:null, hoverCell:null,
+    invalidFlash:0,
+    stats:{botsDestroyed:0, fansSafe:0, fansHarmed:0, fansVerifiedSafe:0, botsLeaked:0, waveReached:1, highestCombo:0, maxMult:1},
+    combo:{count:0, mult:1, lastKillAt:-999, pulse:0, breakAt:-999, graceUntil:-999},
+    breakdown:{botsBase:0, comboBonus:0, fansSafe:0, verifiedBonus:0, resaleBonus:0, waveClearBase:0, penalties:0, cleanEntry:0},
+    waveHadLeak:false,
+    cells:[], lanes:[],
+    venueKey, venueUnlocks,
+    modifier: (VENUES[venueKey] || VENUES.truetix).modifier,
+    cues:{firstFan:false, firstBot:false, firstReveal:false, firstCombo:false, firstBreak:false},
+  });
+  initLanes(); initCells();
+  hideOverlay(); hideCtxMenu();
+  buildPanel();
+  // Show the start screen with local records + venue selector
+  showStartScreen();
+  updateUI();
+}
+
+/* ---------------------------------------------------------------------------
+ * [14] LOOP
+ * ------------------------------------------------------------------------- */
+let last = performance.now()/1000;
+function frame(){
+  const t = performance.now()/1000;
+  let dt = Math.min(CFG.MAX_DT, t - last);
+  last = t;
+  GS.time += dt;
+
+  if(GS.mode==='playing'){
+    GS.invalidFlash = Math.max(0, GS.invalidFlash-dt);
+    tickPendingSpawns();
+    tickSpawns(dt);
+    tickEntities(dt);
+    tickTowers(dt);
+    tickProjectiles(dt);
+    tickParticles(dt);
+    tickFloaties(dt);
+    tickBanner(dt);
+    tickDeferred();
+  } else {
+    // still animate particles/floaties on menu
+    tickParticles(dt);
+    tickFloaties(dt);
+    tickBanner(dt);
+    tickDeferred();
+  }
+
+  render(dt);
+  requestAnimationFrame(frame);
+}
+
+/* ---------------------------------------------------------------------------
+ * [15] BOOT
+ * ------------------------------------------------------------------------- */
+function init(){
+  resize();
+  initLanes();
+  initCells();
+  // Initial state values
+  GS.credits = CFG.START_CREDITS;
+  GS.hp = CFG.START_HP;
+  GS.fanSat = CFG.START_FAN;
+  GS.mode = 'menu';
+  GS.running = true;
+  // Hydrate venue unlocks from localStorage
+  const rec = loadRecords();
+  GS.venueUnlocks = { neon: !!(rec && rec.neonUnlocked) };
+  GS.venueKey = 'truetix';
+  applyVenueTheme(activeVenue());
+  buildPanel();
+  updateUI();
+  // Replace the static overlay markup with the fresh start screen that reflects records.
+  showStartScreen();
+  requestAnimationFrame(frame);
+}
+init();
+
+// Recompute lanes/cells only on resize of canvas element size, but lanes/cells
+// use design coords so they don't need recomputation on window resize.
+new ResizeObserver(()=>resize()).observe(canvasWrap);
+
+</script>
 </body>
 </html>
-
