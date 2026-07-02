@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Busters: Ticket Defense</title>
+    <style>
+        /* ============================================
+           CSS STYLES
+           ============================================ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        h1 {
+            margin: 20px 0 10px;
+            font-size: 2.5rem;
+            text-shadow: 0 0 20px rgba(0, 200, 255, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            color: #00c8ff;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+
+        /* HUD Styles */
+        #hud {
+            display: flex;
+            gap: 30px;
+            padding: 15px 30px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .hud-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 120px;
+        }
+
+        .hud-label {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .hud-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .currency { color: #ffd700; }
+        .health { color: #00ff88; }
+        .satisfaction { color: #00c8ff; }
+        .wave { color: #ff6b6b; }
+
+        /* Health/Satisfaction Bars */
+        .bar-container {
+            width: 100px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .bar-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .health-bar { background: linear-gradient(90deg, #00ff88, #00cc6a); }
+        .satisfaction-bar { background: linear-gradient(90deg, #00c8ff, #0088cc); }
+
+        /* Game Container */
+        #game-container {
+            position: relative;
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+        }
+
+        #gameCanvas {
+            border: 3px solid #00c8ff;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 200, 255, 0.3);
+            cursor: crosshair;
+        }
+
+        /* Defense Panel */
+        #defense-panel {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            padding: 15px;
+            width: 200px;
+        }
+
+        #defense-panel h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #00c8ff;
+            font-size: 1rem;
+        }
+
+        .defense-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        .defense-btn:hover {
+            background: rgba(0, 200, 255, 0.2);
+            border-color: #00c8ff;
+        }
+
+        .defense-btn.selected {
+            background: rgba(0, 200, 255, 0.3);
+            border-color: #00c8ff;
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.4);
+        }
+
+        .defense-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .defense-icon {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+
+        .defense-name {
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+
+        .defense-cost {
+            font-size: 0.75rem;
+            color: #ffd700;
+        }
+
+        .defense-desc {
+            font-size: 0.65rem;
+            color: #888;
+            text-align: center;
+            margin-top: 3px;
+        }
+
+        /* Wave Banner */
+        #wave-banner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px 60px;
+            border-radius: 15px;
+            border: 3px solid #ff6b6b;
+            text-align: center;
+            z-index: 100;
+            animation: fadeIn 0.5s ease;
+            display: none;
+        }
+
+        #wave-banner.show {
+            display: block;
+        }
+
+        #wave-banner h2 {
+            color: #ff6b6b;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        #wave-banner p {
+            color: #ccc;
+            font-size: 1rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        /* Game Over / Victory Screen */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        #overlay.show {
+            display: flex;
+        }
+
+        .overlay-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 40px 60px;
+            border-radius: 20px;
+            text-align: center;
+            border: 3px solid #00c8ff;
+            box-shadow: 0 0 50px rgba(0, 200, 255, 0.4);
+        }
+
+        .overlay-content h2 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        .victory h2 { color: #00ff88; }
+        .defeat h2 { color: #ff6b6b; }
+
+        .stats {
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-label { color: #888; }
+        .stat-value { color: #fff; font-weight: bold; }
+
+        #restart-btn {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            background: linear-gradient(135deg, #00c8ff, #0088cc);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        #restart-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* Start Button */
+        #start-wave-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 30px;
+            font-size: 1rem;
+            background: linear-gradient(135deg, #ff6b6b, #cc5555);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            z-index: 50;
+            transition: transform 0.2s ease;
+        }
+
+        #start-wave-btn:hover {
+            transform: translateX(-50%) scale(1.05);
+        }
+
+        #start-wave-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Tooltip */
+        #tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #00c8ff;
+            pointer-events: none;
+            z-index: 150;
+            display: none;
+            max-width: 200px;
+        }
+
+        #tooltip.show {
+            display: block;
+        }
+
+        #tooltip h4 {
+            color: #00c8ff;
+            margin-bottom: 5px;
+        }
+
+        #tooltip p {
+            font-size: 0.8rem;
+            color: #ccc;
+        }
+
+        /* Instructions */
+        #instructions {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: #888;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bot Busters: Ticket Defense</h1>
+    <p class="subtitle">Protect the fans. Block the bots. Defend the onsale.</p>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div class="hud-item">
+            <span class="hud-label">Currency</span>
+            <span class="hud-value currency" id="currency-display">500</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">Ticket Inventory</span>
+            <span class="hud-value health" id="health-display">100%</span>
+            <div class="bar-container">
+                <div class="bar-fill health-bar" id="health-bar" style="width: 100%"></div>
+            </div>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">Fan Satisfaction</span>
+            <span class="hud-value satisfaction" id="satisfaction-display">100%</span>
+            <div class="bar-container">
+                <div class="bar-fill satisfaction-bar" id="satisfaction-bar" style="width: 100%"></div>
+            </div>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">Wave</span>
+            <span class="hud-value wave" id="wave-display">1 / 6</span>
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <!-- Defense Panel -->
+        <div id="defense-panel">
+            <h3>DEFENSES</h3>
+            <div id="defense-buttons"></div>
+        </div>
+
+        <!-- Wave Banner -->
+        <div id="wave-banner">
+            <h2 id="wave-title">Wave 1</h2>
+            <p id="wave-desc">Basic Bots incoming!</p>
+        </div>
+
+        <!-- Start Wave Button -->
+        <button id="start-wave-btn">Start Wave 1</button>
+
+        <!-- Tooltip -->
+        <div id="tooltip">
+            <h4 id="tooltip-title">Tower</h4>
+            <p id="tooltip-desc">Description</p>
+        </div>
+    </div>
+
+    <!-- Overlay (Game Over / Victory) -->
+    <div id="overlay">
+        <div class="overlay-content" id="overlay-content">
+            <h2 id="overlay-title">Victory!</h2>
+            <div class="stats" id="stats"></div>
+            <button id="restart-btn">Play Again</button>
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    <div id="instructions">
+        Click a defense to select, then click on a green placement cell to build.
+        Let fans (blue) through while stopping bots (red)!
+    </div>
+
+    <script>
+        /* ============================================
+           GAME CONFIGURATION
+           ============================================ */
+        const CONFIG = {
+            CANVAS_WIDTH: 800,
+            CANVAS_HEIGHT: 600,
+            CELL_SIZE: 50,
+            LANE_COUNT: 4,
+            FPS: 60,
+            STARTING_CURRENCY: 500,
+            STARTING_HEALTH: 100,
+            STARTING_SATISFACTION: 100,
+            FAN_SATISFACTION_PENALTY: 15,
+            FAN_DELIVERY_BONUS: 25,
+            BOT_KILL_REWARD: 20,
+        };
+
+        /* ============================================
+           DEFENSE DEFINITIONS
+           ============================================ */
+        const DEFENSE_TYPES = {
+            CAPTCHA_CANNON: {
+                name: 'CAPTCHA Cannon',
+                icon: '🎯',
+                cost: 100,
+                damage: 25,
+                range: 120,
+                cooldown: 1000,
+                description: 'Standard single-target damage tower',
+                color: '#ff6b6b',
+                projectileColor: '#ff0000',
+            },
+            VERIFIED_FAN_SHIELD: {
+                name: 'Verified Fan Shield',
+                icon: '🛡️',
+                cost: 75,
+                damage: 0,
+                range: 100,
+                cooldown: 500,
+                description: 'Tags fans as verified, boosts their speed',
+                color: '#00c8ff',
+                projectileColor: '#00c8ff',
+            },
+            DEVICE_FINGERPRINT: {
+                name: 'Device Scanner',
+                icon: '🔍',
+                cost: 150,
+                damage: 0,
+                range: 130,
+                cooldown: 2000,
+                description: 'Reveals disguised Account Takeover Bots',
+                color: '#ffd700',
+                projectileColor: '#ffd700',
+            },
+            PURCHASE_LIMIT_WALL: {
+                name: 'Limit Wall',
+                icon: '🧱',
+                cost: 125,
+                damage: 0,
+                range: 90,
+                cooldown: 100,
+                description: 'Slows all bots in range',
+                color: '#ff9800',
+                slowFactor: 0.5,
+            },
+            VELOCITY_TRAP: {
+                name: 'Velocity Trap',
+                icon: '⚡',
+                cost: 175,
+                damage: 50,
+                range: 100,
+                cooldown: 1500,
+                description: 'Heavy damage to fast-moving entities',
+                color: '#9c27b0',
+                projectileColor: '#9c27b0',
+                speedThreshold: 1.5,
+            },
+            RESALE_MONITOR: {
+                name: 'Resale Monitor',
+                icon: '💰',
+                cost: 200,
+                damage: 15,
+                range: 110,
+                cooldown: 1200,
+                description: 'Bonus currency for nearby bot kills',
+                color: '#4caf50',
+                projectileColor: '#4caf50',
+                bonusCurrency: 10,
+            },
+            FRAUD_DRONE: {
+                name: 'Fraud Drone',
+                icon: '🚁',
+                cost: 250,
+                damage: 0,
+                range: 80,
+                cooldown: 3000,
+                description: 'Mobile defense that stuns bots',
+                color: '#00bcd4',
+                stunDuration: 2000,
+                patrolSpeed: 1,
+            },
+        };
+
+        /* ============================================
+           ENTITY DEFINITIONS
+           ============================================ */
+        const ENTITY_TYPES = {
+            REAL_FAN: {
+                name: 'Real Fan',
+                speed: 0.8,
+                health: 30,
+                color: '#00c8ff',
+                icon: '👤',
+                isFan: true,
+                reward: 0,
+            },
+            BASIC_BOT: {
+                name: 'Basic Bot',
+                speed: 1.5,
+                health: 40,
+                color: '#ff4444',
+                icon: '🤖',
+                isFan: false,
+                reward: 20,
+                damage: 10,
+            },
+            SWARM_BOT: {
+                name: 'Swarm Bot',
+                speed: 1.3,
+                health: 25,
+                color: '#ff6666',
+                icon: '🤖',
+                isFan: false,
+                reward: 15,
+                damage: 5,
+            },
+            ACCOUNT_TAKEOVER: {
+                name: 'Account Takeover Bot',
+                speed: 1.0,
+                health: 50,
+                color: '#ff4444',
+                disguisedColor: '#00c8ff',
+                icon: '🤖',
+                disguisedIcon: '👤',
+                isFan: false,
+                isDisguised: true,
+                reward: 35,
+                damage: 15,
+            },
+            PROXY_BOT: {
+                name: 'Proxy Bot',
+                speed: 1.4,
+                health: 35,
+                color: '#ff8800',
+                icon: '🤖',
+                isFan: false,
+                reward: 25,
+                damage: 8,
+                canSwitchLanes: true,
+            },
+            FAKE_IDENTITY: {
+                name: 'Fake Identity Farm',
+                speed: 0.9,
+                health: 80,
+                color: '#cc00cc',
+                icon: '🏭',
+                isFan: false,
+                reward: 40,
+                damage: 20,
+                spawnsOnDeath: 3,
+            },
+            MINI_BOT: {
+                name: 'Mini Bot',
+                speed: 1.8,
+                health: 15,
+                color: '#ff66ff',
+                icon: '🤖',
+                isFan: false,
+                reward: 8,
+                damage: 3,
+            },
+            LAST_SECOND: {
+                name: 'Last-Second Bot',
+                speed: 3.0,
+                health: 30,
+                color: '#ff0000',
+                icon: '💨',
+                isFan: false,
+                reward: 50,
+                damage: 25,
+            },
+        };
+
+        /* ============================================
+           WAVE DEFINITIONS
+           ============================================ */
+        const WAVES = [
+            {
+                number: 1,
+                name: 'Basic Bot Attack',
+                description: 'Simple bots are flooding the queue!',
+                spawns: [
+                    { type: 'BASIC_BOT', count: 8, interval: 1500 },
+                    { type: 'REAL_FAN', count: 4, interval: 3000, delay: 2000 },
+                ],
+            },
+            {
+                number: 2,
+                name: 'Coordinated Swarm',
+                description: 'Bots are attacking in formation!',
+                spawns: [
+                    { type: 'SWARM_BOT', count: 16, interval: 800, swarmSize: 4 },
+                    { type: 'REAL_FAN', count: 6, interval: 2500, delay: 1000 },
+                    { type: 'BASIC_BOT', count: 4, interval: 2000, delay: 5000 },
+                ],
+            },
+            {
+                number: 3,
+                name: 'Account Takeover',
+                description: 'Warning: Bots are disguising as real fans!',
+                spawns: [
+                    { type: 'ACCOUNT_TAKEOVER', count: 6, interval: 2500 },
+                    { type: 'REAL_FAN', count: 8, interval: 2000, delay: 500 },
+                    { type: 'BASIC_BOT', count: 6, interval: 1800, delay: 3000 },
+                ],
+            },
+            {
+                number: 4,
+                name: 'Proxy Network',
+                description: 'Bots are switching lanes to dodge defenses!',
+                spawns: [
+                    { type: 'PROXY_BOT', count: 8, interval: 2000 },
+                    { type: 'SWARM_BOT', count: 8, interval: 1200, delay: 2000 },
+                    { type: 'REAL_FAN', count: 6, interval: 2500, delay: 1500 },
+                    { type: 'ACCOUNT_TAKEOVER', count: 3, interval: 3000, delay: 4000 },
+                ],
+            },
+            {
+                number: 5,
+                name: 'Identity Farm Raid',
+                description: 'Destroying these bots spawns more bots!',
+                spawns: [
+                    { type: 'FAKE_IDENTITY', count: 5, interval: 4000 },
+                    { type: 'PROXY_BOT', count: 4, interval: 2500, delay: 2000 },
+                    { type: 'REAL_FAN', count: 8, interval: 2000, delay: 1000 },
+                    { type: 'BASIC_BOT', count: 6, interval: 1500, delay: 6000 },
+                ],
+            },
+            {
+                number: 6,
+                name: 'FINAL WAVE: Last-Second Assault',
+                description: 'Everything they have - all at once!',
+                spawns: [
+                    { type: 'LAST_SECOND', count: 6, interval: 3000 },
+                    { type: 'FAKE_IDENTITY', count: 3, interval: 5000, delay: 2000 },
+                    { type: 'ACCOUNT_TAKEOVER', count: 5, interval: 2500, delay: 1000 },
+                    { type: 'PROXY_BOT', count: 6, interval: 2000, delay: 3000 },
+                    { type: 'SWARM_BOT', count: 12, interval: 1000, delay: 5000, swarmSize: 4 },
+                    { type: 'REAL_FAN', count: 10, interval: 1800, delay: 500 },
+                ],
+            },
+        ];
+
+        /* ============================================
+           GAME STATE
+           ============================================ */
+        const gameState = {
+            currency: CONFIG.STARTING_CURRENCY,
+            health: CONFIG.STARTING_HEALTH,
+            satisfaction: CONFIG.STARTING_SATISFACTION,
+            currentWave: 0,
+            waveInProgress: false,
+            gameOver: false,
+            victory: false,
+            selectedDefense: null,
+            entities: [],
+            defenses: [],
+            projectiles: [],
+            effects: [],
+            placementCells: [],
+            lanes: [],
+            stats: {
+                botsDestroyed: 0,
+                fansProtected: 0,
+                fansLost: 0,
+                totalCurrencyEarned: 0,
+            },
+            spawnTimers: [],
+            lastTime: 0,
+        };
+
+        /* ============================================
+           CANVAS SETUP
+           ============================================ */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        /* ============================================
+           SOUND STUBS
+           ============================================ */
+        const Sound = {
+            placeDefense: () => { /* stub */ },
+            destroyBot: () => { /* stub */ },
+            fanReachSafety: () => { /* stub */ },
+            waveStart: () => { /* stub */ },
+            gameOver: () => { /* stub */ },
+        };
+
+        /* ============================================
+           INITIALIZATION
+           ============================================ */
+        function initGame() {
+            gameState.currency = CONFIG.STARTING_CURRENCY;
+            gameState.health = CONFIG.STARTING_HEALTH;
+            gameState.satisfaction = CONFIG.STARTING_SATISFACTION;
+            gameState.currentWave = 0;
+            gameState.waveInProgress = false;
+            gameState.gameOver = false;
+            gameState.victory = false;
+            gameState.selectedDefense = null;
+            gameState.entities = [];
+            gameState.defenses = [];
+            gameState.projectiles = [];
+            gameState.effects = [];
+            gameState.spawnTimers = [];
+            gameState.stats = {
+                botsDestroyed: 0,
+                fansProtected: 0,
+                fansLost: 0,
+                totalCurrencyEarned: 0,
+            };
+
+            initLanes();
+            initPlacementCells();
+            initDefenseButtons();
+            updateHUD();
+            hideOverlay();
+            updateStartButton();
+        }
+
+        function initLanes() {
+            gameState.lanes = [];
+            const laneSpacing = CONFIG.CANVAS_HEIGHT / (CONFIG.LANE_COUNT + 1);
+
+            for (let i = 0; i < CONFIG.LANE_COUNT; i++) {
+                const y = laneSpacing * (i + 1);
+                gameState.lanes.push({
+                    index: i,
+                    y: y,
+                    startX: 0,
+                    endX: CONFIG.CANVAS_WIDTH,
+                });
+            }
+        }
+
+        function initPlacementCells() {
+            gameState.placementCells = [];
+            const cellSize = CONFIG.CELL_SIZE;
+            const cols = Math.floor(CONFIG.CANVAS_WIDTH / cellSize);
+
+            for (let col = 2; col < cols - 2; col++) {
+                for (let lane = 0; lane < CONFIG.LANE_COUNT; lane++) {
+                    const laneY = gameState.lanes[lane].y;
+                    const cellY = laneY - cellSize - 10;
+                    const cellYBelow = laneY + 10;
+
+                    gameState.placementCells.push({
+                        x: col * cellSize,
+                        y: cellY,
+                        width: cellSize,
+                        height: cellSize,
+                        occupied: false,
+                        lane: lane,
+                    });
+
+                    if (lane === CONFIG.LANE_COUNT - 1) {
+                        gameState.placementCells.push({
+                            x: col * cellSize,
+                            y: cellYBelow,
+                            width: cellSize,
+                            height: cellSize,
+                            occupied: false,
+                            lane: lane,
+                        });
+                    }
+                }
+            }
+        }
+
+        function initDefenseButtons() {
+            const container = document.getElementById('defense-buttons');
+            container.innerHTML = '';
+
+            Object.keys(DEFENSE_TYPES).forEach(key => {
+                const def = DEFENSE_TYPES[key];
+                const btn = document.createElement('button');
+                btn.className = 'defense-btn';
+                btn.dataset.type = key;
+                btn.innerHTML = `
+                    <span class="defense-icon">${def.icon}</span>
+                    <span class="defense-name">${def.name}</span>
+                    <span class="defense-cost">$${def.cost}</span>
+                    <span class="defense-desc">${def.description}</span>
+                `;
+                btn.addEventListener('click', () => selectDefense(key));
+                container.appendChild(btn);
+            });
+
+            updateDefenseButtons();
+        }
+
+        /* ============================================
+           DEFENSE SELECTION & PLACEMENT
+           ============================================ */
+        function selectDefense(type) {
+            const def = DEFENSE_TYPES[type];
+            if (gameState.currency < def.cost) return;
+
+            if (gameState.selectedDefense === type) {
+                gameState.selectedDefense = null;
+            } else {
+                gameState.selectedDefense = type;
+            }
+
+            updateDefenseButtons();
+        }
+
+        function updateDefenseButtons() {
+            const buttons = document.querySelectorAll('.defense-btn');
+            buttons.forEach(btn => {
+                const type = btn.dataset.type;
+                const def = DEFENSE_TYPES[type];
+
+                btn.classList.remove('selected', 'disabled');
+
+                if (gameState.selectedDefense === type) {
+                    btn.classList.add('selected');
+                }
+
+                if (gameState.currency < def.cost) {
+                    btn.classList.add('disabled');
+                }
+            });
+        }
+
+        function placeDefense(cell) {
+            if (!gameState.selectedDefense || cell.occupied) return;
+
+            const defType = DEFENSE_TYPES[gameState.selectedDefense];
+            if (gameState.currency < defType.cost) return;
+
+            gameState.currency -= defType.cost;
+            cell.occupied = true;
+
+            const defense = {
+                type: gameState.selectedDefense,
+                x: cell.x + cell.width / 2,
+                y: cell.y + cell.height / 2,
+                ...defType,
+                lastFired: 0,
+                level: 1,
+                patrolDirection: 1,
+                patrolOffset: 0,
+            };
+
+            gameState.defenses.push(defense);
+            Sound.placeDefense();
+
+            gameState.selectedDefense = null;
+            updateDefenseButtons();
+            updateHUD();
+        }
+
+        /* ============================================
+           ENTITY MANAGEMENT
+           ============================================ */
+        function spawnEntity(typeKey, laneIndex) {
+            const type = ENTITY_TYPES[typeKey];
+            const lane = gameState.lanes[laneIndex !== undefined ? laneIndex : Math.floor(Math.random() * CONFIG.LANE_COUNT)];
+
+            const entity = {
+                type: typeKey,
+                x: -30,
+                y: lane.y,
+                lane: lane.index,
+                speed: type.speed,
+                baseSpeed: type.speed,
+                health: type.health,
+                maxHealth: type.health,
+                color: type.color,
+                icon: type.icon,
+                isFan: type.isFan,
+                reward: type.reward || 0,
+                damage: type.damage || 0,
+                isDisguised: type.isDisguised || false,
+                disguisedColor: type.disguisedColor,
+                disguisedIcon: type.disguisedIcon,
+                canSwitchLanes: type.canSwitchLanes || false,
+                spawnsOnDeath: type.spawnsOnDeath || 0,
+                isVerified: false,
+                isStunned: false,
+                stunEndTime: 0,
+                isSlowed: false,
+                lastLaneSwitch: 0,
+            };
+
+            gameState.entities.push(entity);
+            return entity;
+        }
+
+        function spawnSwarm(typeKey, count, laneIndex) {
+            const baseLane = laneIndex !== undefined ? laneIndex : Math.floor(Math.random() * CONFIG.LANE_COUNT);
+
+            for (let i = 0; i < count; i++) {
+                const lane = (baseLane + Math.floor(i / 2)) % CONFIG.LANE_COUNT;
+                const entity = spawnEntity(typeKey, lane);
+                entity.x = -30 - (i % 2) * 40;
+            }
+        }
+
+        function updateEntities(deltaTime) {
+            const currentTime = performance.now();
+
+            for (let i = gameState.entities.length - 1; i >= 0; i--) {
+                const entity = gameState.entities[i];
+
+                if (entity.isStunned && currentTime < entity.stunEndTime) {
+                    continue;
+                } else {
+                    entity.isStunned = false;
+                }
+
+                let speed = entity.baseSpeed;
+
+                if (entity.isVerified && entity.isFan) {
+                    speed *= 1.3;
+                }
+
+                entity.isSlowed = false;
+                for (const defense of gameState.defenses) {
+                    if (defense.type === 'PURCHASE_LIMIT_WALL') {
+                        const dist = Math.hypot(entity.x - defense.x, entity.y - defense.y);
+                        if (dist < defense.range && !entity.isFan) {
+                            speed *= DEFENSE_TYPES.PURCHASE_LIMIT_WALL.slowFactor;
+                            entity.isSlowed = true;
+                            break;
+                        }
+                    }
+                }
+
+                entity.speed = speed;
+                entity.x += entity.speed * deltaTime * 0.06;
+
+                if (entity.canSwitchLanes && currentTime - entity.lastLaneSwitch > 2000) {
+                    if (Math.random() < 0.02) {
+                        const newLane = Math.floor(Math.random() * CONFIG.LANE_COUNT);
+                        entity.lane = newLane;
+                        entity.y = gameState.lanes[newLane].y;
+                        entity.lastLaneSwitch = currentTime;
+                    }
+                }
+
+                if (entity.x > CONFIG.CANVAS_WIDTH + 20) {
+                    if (entity.isFan) {
+                        gameState.stats.fansProtected++;
+                        gameState.currency += CONFIG.FAN_DELIVERY_BONUS;
+                        gameState.stats.totalCurrencyEarned += CONFIG.FAN_DELIVERY_BONUS;
+                        Sound.fanReachSafety();
+
+                        addEffect(CONFIG.CANVAS_WIDTH - 30, entity.y, '+$' + CONFIG.FAN_DELIVERY_BONUS, '#00ff88');
+                    } else {
+                        gameState.health -= entity.damage;
+                        addEffect(CONFIG.CANVAS_WIDTH - 30, entity.y, '-' + entity.damage + ' HP', '#ff4444');
+                    }
+                    gameState.entities.splice(i, 1);
+                }
+            }
+
+            updateHUD();
+            checkGameOver();
+        }
+
+        function damageEntity(entity, damage, defense) {
+            entity.health -= damage;
+
+            if (entity.health <= 0) {
+                destroyEntity(entity, defense);
+            }
+        }
+
+        function destroyEntity(entity, defense) {
+            const index = gameState.entities.indexOf(entity);
+            if (index === -1) return;
+
+            if (entity.isFan || (entity.isDisguised && entity.type === 'ACCOUNT_TAKEOVER')) {
+                if (entity.isFan || entity.isDisguised) {
+                    gameState.satisfaction -= CONFIG.FAN_SATISFACTION_PENALTY;
+                    gameState.stats.fansLost++;
+                    addEffect(entity.x, entity.y, 'Fan blocked!', '#ff6b6b');
+                }
+            }
+
+            if (!entity.isFan) {
+                let reward = entity.reward;
+
+                if (defense && defense.type === 'RESALE_MONITOR') {
+                    reward += DEFENSE_TYPES.RESALE_MONITOR.bonusCurrency;
+                }
+
+                gameState.currency += reward;
+                gameState.stats.totalCurrencyEarned += reward;
+                gameState.stats.botsDestroyed++;
+                Sound.destroyBot();
+
+                addEffect(entity.x, entity.y, '+$' + reward, '#ffd700');
+
+                if (entity.spawnsOnDeath > 0) {
+                    for (let i = 0; i < entity.spawnsOnDeath; i++) {
+                        const miniBot = spawnEntity('MINI_BOT', entity.lane);
+                        miniBot.x = entity.x + (Math.random() - 0.5) * 30;
+                    }
+                }
+            }
+
+            gameState.entities.splice(index, 1);
+            updateHUD();
+        }
+
+        /* ============================================
+           DEFENSE BEHAVIOR
+           ============================================ */
+        function updateDefenses(deltaTime) {
+            const currentTime = performance.now();
+
+            for (const defense of gameState.defenses) {
+                if (currentTime - defense.lastFired < defense.cooldown) continue;
+
+                if (defense.type === 'FRAUD_DRONE') {
+                    defense.patrolOffset += defense.patrolSpeed * deltaTime * 0.05 * defense.patrolDirection;
+                    if (Math.abs(defense.patrolOffset) > 100) {
+                        defense.patrolDirection *= -1;
+                    }
+                }
+
+                const effectiveX = defense.x + (defense.patrolOffset || 0);
+
+                for (const entity of gameState.entities) {
+                    const dist = Math.hypot(entity.x - effectiveX, entity.y - defense.y);
+
+                    if (dist > defense.range) continue;
+
+                    switch (defense.type) {
+                        case 'CAPTCHA_CANNON':
+                            if (!entity.isFan && !(entity.isDisguised && entity.type === 'ACCOUNT_TAKEOVER')) {
+                                fireProjectile(defense, entity);
+                                defense.lastFired = currentTime;
+                            }
+                            break;
+
+                        case 'VERIFIED_FAN_SHIELD':
+                            if (entity.isFan && !entity.isVerified) {
+                                entity.isVerified = true;
+                                addEffect(entity.x, entity.y - 20, 'Verified!', '#00c8ff');
+                                defense.lastFired = currentTime;
+                            }
+                            break;
+
+                        case 'DEVICE_FINGERPRINT':
+                            if (entity.isDisguised) {
+                                entity.isDisguised = false;
+                                entity.color = ENTITY_TYPES[entity.type].color;
+                                entity.icon = ENTITY_TYPES[entity.type].icon;
+                                addEffect(entity.x, entity.y - 20, 'REVEALED!', '#ffd700');
+                                defense.lastFired = currentTime;
+                            }
+                            break;
+
+                        case 'VELOCITY_TRAP':
+                            if (!entity.isFan && entity.speed >= DEFENSE_TYPES.VELOCITY_TRAP.speedThreshold) {
+                                fireProjectile(defense, entity);
+                                defense.lastFired = currentTime;
+                            }
+                            break;
+
+                        case 'RESALE_MONITOR':
+                            if (!entity.isFan && !(entity.isDisguised && entity.type === 'ACCOUNT_TAKEOVER')) {
+                                fireProjectile(defense, entity);
+                                defense.lastFired = currentTime;
+                            }
+                            break;
+
+                        case 'FRAUD_DRONE':
+                            if (!entity.isFan && !entity.isStunned && !(entity.isDisguised && entity.type === 'ACCOUNT_TAKEOVER')) {
+                                entity.isStunned = true;
+                                entity.stunEndTime = currentTime + DEFENSE_TYPES.FRAUD_DRONE.stunDuration;
+                                addEffect(entity.x, entity.y - 20, 'STUNNED!', '#00bcd4');
+                                defense.lastFired = currentTime;
+                            }
+                            break;
+                    }
+
+                    if (defense.lastFired === currentTime) break;
+                }
+            }
+        }
+
+        /* ============================================
+           PROJECTILES
+           ============================================ */
+        function fireProjectile(defense, target) {
+            gameState.projectiles.push({
+                x: defense.x + (defense.patrolOffset || 0),
+                y: defense.y,
+                targetX: target.x,
+                targetY: target.y,
+                target: target,
+                damage: defense.damage,
+                color: defense.projectileColor,
+                speed: 8,
+                defense: defense,
+            });
+        }
+
+        function updateProjectiles(deltaTime) {
+            for (let i = gameState.projectiles.length - 1; i >= 0; i--) {
+                const proj = gameState.projectiles[i];
+
+                const dx = proj.target.x - proj.x;
+                const dy = proj.target.y - proj.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist < 15 || !gameState.entities.includes(proj.target)) {
+                    if (gameState.entities.includes(proj.target)) {
+                        damageEntity(proj.target, proj.damage, proj.defense);
+                    }
+                    gameState.projectiles.splice(i, 1);
+                    continue;
+                }
+
+                proj.x += (dx / dist) * proj.speed * deltaTime * 0.1;
+                proj.y += (dy / dist) * proj.speed * deltaTime * 0.1;
+            }
+        }
+
+        /* ============================================
+           VISUAL EFFECTS
+           ============================================ */
+        function addEffect(x, y, text, color) {
+            gameState.effects.push({
+                x,
+                y,
+                text,
+                color,
+                alpha: 1,
+                vy: -1,
+            });
+        }
+
+        function updateEffects(deltaTime) {
+            for (let i = gameState.effects.length - 1; i >= 0; i--) {
+                const effect = gameState.effects[i];
+                effect.y += effect.vy * deltaTime * 0.05;
+                effect.alpha -= 0.02;
+
+                if (effect.alpha <= 0) {
+                    gameState.effects.splice(i, 1);
+                }
+            }
+        }
+
+        /* ============================================
+           WAVE MANAGEMENT
+           ============================================ */
+        function startWave() {
+            if (gameState.waveInProgress || gameState.gameOver) return;
+
+            const wave = WAVES[gameState.currentWave];
+            if (!wave) return;
+
+            gameState.waveInProgress = true;
+            showWaveBanner(wave);
+            Sound.waveStart();
+
+            setTimeout(() => {
+                hideWaveBanner();
+
+                wave.spawns.forEach(spawn => {
+                    const delay = spawn.delay || 0;
+                    let spawned = 0;
+
+                    const timer = setInterval(() => {
+                        if (gameState.gameOver) {
+                            clearInterval(timer);
+                            return;
+                        }
+
+                        if (spawn.swarmSize) {
+                            spawnSwarm(spawn.type, spawn.swarmSize);
+                            spawned += spawn.swarmSize;
+                        } else {
+                            spawnEntity(spawn.type);
+                            spawned++;
+                        }
+
+                        if (spawned >= spawn.count) {
+                            clearInterval(timer);
+                        }
+                    }, spawn.interval);
+
+                    setTimeout(() => {
+                        gameState.spawnTimers.push(timer);
+                    }, delay);
+                });
+            }, 2500);
+
+            updateStartButton();
+        }
+
+        function checkWaveComplete() {
+            if (!gameState.waveInProgress) return;
+
+            const allSpawned = gameState.spawnTimers.every(timer => timer._idleTimeout === -1 || !timer._idleTimeout);
+
+            if (gameState.entities.length === 0 && gameState.waveInProgress) {
+                const totalExpected = WAVES[gameState.currentWave].spawns.reduce((sum, s) => sum + s.count, 0);
+                const processed = gameState.stats.botsDestroyed + gameState.stats.fansProtected + gameState.stats.fansLost;
+
+                if (processed > 0) {
+                    gameState.waveInProgress = false;
+                    gameState.currentWave++;
+                    gameState.spawnTimers = [];
+
+                    if (gameState.currentWave >= WAVES.length) {
+                        showVictory();
+                    } else {
+                        updateStartButton();
+                    }
+                }
+            }
+        }
+
+        function showWaveBanner(wave) {
+            const banner = document.getElementById('wave-banner');
+            document.getElementById('wave-title').textContent = `Wave ${wave.number}: ${wave.name}`;
+            document.getElementById('wave-desc').textContent = wave.description;
+            banner.classList.add('show');
+        }
+
+        function hideWaveBanner() {
+            document.getElementById('wave-banner').classList.remove('show');
+        }
+
+        function updateStartButton() {
+            const btn = document.getElementById('start-wave-btn');
+
+            if (gameState.gameOver || gameState.victory) {
+                btn.style.display = 'none';
+                return;
+            }
+
+            if (gameState.waveInProgress) {
+                btn.disabled = true;
+                btn.textContent = 'Wave in Progress...';
+            } else if (gameState.currentWave < WAVES.length) {
+                btn.disabled = false;
+                btn.textContent = `Start Wave ${gameState.currentWave + 1}`;
+                btn.style.display = 'block';
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+
+        /* ============================================
+           GAME STATE CHECKS
+           ============================================ */
+        function checkGameOver() {
+            if (gameState.gameOver) return;
+
+            if (gameState.health <= 0) {
+                gameState.gameOver = true;
+                showDefeat('Ticket inventory depleted!');
+            } else if (gameState.satisfaction <= 0) {
+                gameState.gameOver = true;
+                showDefeat('Too many fans blocked!');
+            }
+        }
+
+        function showVictory() {
+            gameState.victory = true;
+            gameState.gameOver = true;
+
+            const overlay = document.getElementById('overlay');
+            const content = document.getElementById('overlay-content');
+            content.classList.remove('defeat');
+            content.classList.add('victory');
+
+            document.getElementById('overlay-title').textContent = 'Victory!';
+            document.getElementById('stats').innerHTML = generateStats();
+
+            overlay.classList.add('show');
+            Sound.gameOver();
+        }
+
+        function showDefeat(reason) {
+            const overlay = document.getElementById('overlay');
+            const content = document.getElementById('overlay-content');
+            content.classList.remove('victory');
+            content.classList.add('defeat');
+
+            document.getElementById('overlay-title').textContent = 'Game Over';
+            document.getElementById('stats').innerHTML = `
+                <p style="color: #ff6b6b; margin-bottom: 15px;">${reason}</p>
+                ${generateStats()}
+            `;
+
+            overlay.classList.add('show');
+            Sound.gameOver();
+        }
+
+        function generateStats() {
+            return `
+                <div class="stat-row">
+                    <span class="stat-label">Waves Survived</span>
+                    <span class="stat-value">${gameState.currentWave} / ${WAVES.length}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Bots Destroyed</span>
+                    <span class="stat-value">${gameState.stats.botsDestroyed}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Fans Protected</span>
+                    <span class="stat-value">${gameState.stats.fansProtected}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Fans Lost</span>
+                    <span class="stat-value">${gameState.stats.fansLost}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Total Earnings</span>
+                    <span class="stat-value">$${gameState.stats.totalCurrencyEarned}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Final Score</span>
+                    <span class="stat-value">${calculateScore()}</span>
+                </div>
+            `;
+        }
+
+        function calculateScore() {
+            return (
+                gameState.stats.botsDestroyed * 100 +
+                gameState.stats.fansProtected * 200 -
+                gameState.stats.fansLost * 150 +
+                gameState.currentWave * 500 +
+                Math.floor(gameState.health) * 10 +
+                Math.floor(gameState.satisfaction) * 10
+            );
+        }
+
+        function hideOverlay() {
+            document.getElementById('overlay').classList.remove('show');
+        }
+
+        /* ============================================
+           HUD UPDATE
+           ============================================ */
+        function updateHUD() {
+            document.getElementById('currency-display').textContent = Math.floor(gameState.currency);
+            document.getElementById('health-display').textContent = Math.max(0, Math.floor(gameState.health)) + '%';
+            document.getElementById('health-bar').style.width = Math.max(0, gameState.health) + '%';
+            document.getElementById('satisfaction-display').textContent = Math.max(0, Math.floor(gameState.satisfaction)) + '%';
+            document.getElementById('satisfaction-bar').style.width = Math.max(0, gameState.satisfaction) + '%';
+            document.getElementById('wave-display').textContent = `${gameState.currentWave + 1} / ${WAVES.length}`;
+
+            updateDefenseButtons();
+        }
+
+        /* ============================================
+           RENDERING
+           ============================================ */
+        function render() {
+            ctx.clearRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+
+            drawBackground();
+            drawLanes();
+            drawPlacementCells();
+            drawDefenses();
+            drawEntities();
+            drawProjectiles();
+            drawEffects();
+            drawRangeIndicator();
+        }
+
+        function drawBackground() {
+            const gradient = ctx.createLinearGradient(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+            gradient.addColorStop(0, '#1a1a2e');
+            gradient.addColorStop(1, '#16213e');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+
+            ctx.fillStyle = 'rgba(0, 200, 255, 0.1)';
+            for (let i = 0; i < CONFIG.CANVAS_WIDTH; i += 50) {
+                ctx.fillRect(i, 0, 1, CONFIG.CANVAS_HEIGHT);
+            }
+            for (let i = 0; i < CONFIG.CANVAS_HEIGHT; i += 50) {
+                ctx.fillRect(0, i, CONFIG.CANVAS_WIDTH, 1);
+            }
+
+            ctx.fillStyle = 'rgba(0, 255, 136, 0.3)';
+            ctx.fillRect(CONFIG.CANVAS_WIDTH - 60, 0, 60, CONFIG.CANVAS_HEIGHT);
+
+            ctx.save();
+            ctx.translate(CONFIG.CANVAS_WIDTH - 30, CONFIG.CANVAS_HEIGHT / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillStyle = '#00ff88';
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('TICKET INVENTORY', 0, 5);
+            ctx.restore();
+        }
+
+        function drawLanes() {
+            for (const lane of gameState.lanes) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 30;
+                ctx.setLineDash([10, 10]);
+                ctx.beginPath();
+                ctx.moveTo(0, lane.y);
+                ctx.lineTo(CONFIG.CANVAS_WIDTH - 60, lane.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.font = '12px sans-serif';
+                ctx.fillText(`Lane ${lane.index + 1}`, 10, lane.y + 4);
+            }
+        }
+
+        function drawPlacementCells() {
+            for (const cell of gameState.placementCells) {
+                if (cell.occupied) continue;
+
+                const isHovered = mousePos &&
+                    mousePos.x >= cell.x && mousePos.x < cell.x + cell.width &&
+                    mousePos.y >= cell.y && mousePos.y < cell.y + cell.height;
+
+                ctx.fillStyle = isHovered && gameState.selectedDefense
+                    ? 'rgba(0, 255, 136, 0.4)'
+                    : 'rgba(0, 255, 136, 0.15)';
+                ctx.fillRect(cell.x, cell.y, cell.width, cell.height);
+
+                ctx.strokeStyle = isHovered && gameState.selectedDefense
+                    ? '#00ff88'
+                    : 'rgba(0, 255, 136, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(cell.x, cell.y, cell.width, cell.height);
+            }
+        }
+
+        function drawDefenses() {
+            for (const defense of gameState.defenses) {
+                const effectiveX = defense.x + (defense.patrolOffset || 0);
+
+                ctx.fillStyle = defense.color;
+                ctx.beginPath();
+                ctx.arc(effectiveX, defense.y, 20, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.font = '20px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(defense.icon, effectiveX, defense.y);
+
+                if (defense.type === 'FRAUD_DRONE') {
+                    ctx.strokeStyle = 'rgba(0, 188, 212, 0.3)';
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(defense.x - 100, defense.y);
+                    ctx.lineTo(defense.x + 100, defense.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+        }
+
+        function drawEntities() {
+            for (const entity of gameState.entities) {
+                const displayColor = entity.isDisguised ? entity.disguisedColor : entity.color;
+                const displayIcon = entity.isDisguised ? entity.disguisedIcon : entity.icon;
+
+                if (entity.isSlowed) {
+                    ctx.fillStyle = 'rgba(255, 152, 0, 0.3)';
+                    ctx.beginPath();
+                    ctx.arc(entity.x, entity.y, 25, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                if (entity.isStunned) {
+                    ctx.fillStyle = 'rgba(0, 188, 212, 0.4)';
+                    ctx.beginPath();
+                    ctx.arc(entity.x, entity.y, 25, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.fillStyle = displayColor;
+                ctx.beginPath();
+                ctx.arc(entity.x, entity.y, 18, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (entity.isVerified) {
+                    ctx.strokeStyle = '#00ff88';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+
+                ctx.font = '16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(displayIcon, entity.x, entity.y);
+
+                const healthPct = entity.health / entity.maxHealth;
+                if (healthPct < 1) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.fillRect(entity.x - 15, entity.y - 28, 30, 5);
+                    ctx.fillStyle = entity.isFan ? '#00c8ff' : '#ff4444';
+                    ctx.fillRect(entity.x - 15, entity.y - 28, 30 * healthPct, 5);
+                }
+            }
+        }
+
+        function drawProjectiles() {
+            for (const proj of gameState.projectiles) {
+                ctx.fillStyle = proj.color;
+                ctx.beginPath();
+                ctx.arc(proj.x, proj.y, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.beginPath();
+                ctx.arc(proj.x, proj.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawEffects() {
+            for (const effect of gameState.effects) {
+                ctx.globalAlpha = effect.alpha;
+                ctx.fillStyle = effect.color;
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(effect.text, effect.x, effect.y);
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function drawRangeIndicator() {
+            if (!gameState.selectedDefense || !mousePos) return;
+
+            const def = DEFENSE_TYPES[gameState.selectedDefense];
+
+            for (const cell of gameState.placementCells) {
+                if (cell.occupied) continue;
+
+                const isHovered =
+                    mousePos.x >= cell.x && mousePos.x < cell.x + cell.width &&
+                    mousePos.y >= cell.y && mousePos.y < cell.y + cell.height;
+
+                if (isHovered) {
+                    const centerX = cell.x + cell.width / 2;
+                    const centerY = cell.y + cell.height / 2;
+
+                    ctx.strokeStyle = def.color;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, def.range, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    ctx.fillStyle = def.color + '20';
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, def.range, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+                }
+            }
+        }
+
+        /* ============================================
+           INPUT HANDLING
+           ============================================ */
+        let mousePos = null;
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mousePos = {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top,
+            };
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            mousePos = null;
+        });
+
+        canvas.addEventListener('click', (e) => {
+            if (gameState.gameOver) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            for (const cell of gameState.placementCells) {
+                if (x >= cell.x && x < cell.x + cell.width &&
+                    y >= cell.y && y < cell.y + cell.height) {
+                    if (!cell.occupied && gameState.selectedDefense) {
+                        placeDefense(cell);
+                    }
+                    return;
+                }
+            }
+        });
+
+        document.getElementById('start-wave-btn').addEventListener('click', startWave);
+        document.getElementById('restart-btn').addEventListener('click', initGame);
+
+        /* ============================================
+           GAME LOOP
+           ============================================ */
+        function gameLoop(timestamp) {
+            const deltaTime = timestamp - gameState.lastTime;
+            gameState.lastTime = timestamp;
+
+            if (!gameState.gameOver) {
+                updateEntities(deltaTime);
+                updateDefenses(deltaTime);
+                updateProjectiles(deltaTime);
+                updateEffects(deltaTime);
+                checkWaveComplete();
+            }
+
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        initGame();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
