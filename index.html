@@ -43,41 +43,60 @@
     padding:8px;gap:8px;
   }
 
-  /* ---- HUD ---- */
+  /* ---- HUD — arcade command bar ---- */
   #hud{
     display:grid;
-    grid-template-columns: 1fr 2fr 2fr 1.4fr 1fr 1fr;
-    gap:8px;
+    grid-template-columns: 1fr 2fr 2fr 1.6fr 1fr 1.2fr;
+    gap:2px;
     align-items:center;
-    padding:8px 10px;
-    background:linear-gradient(180deg,#0d1730 0%,#070c1c 100%);
-    border:1px solid var(--line);
-    border-radius:4px;
+    padding:10px 6px;
+    background:
+      linear-gradient(180deg,#12203f 0%,#0a1226 55%,#060a18 100%);
+    border:1px solid #24406e;
+    border-top:2px solid #3b6ac2;
+    border-radius:6px;
     font-variant-numeric:tabular-nums;
     letter-spacing:.02em;
-    min-height:58px;
+    min-height:62px;
+    box-shadow:inset 0 1px 0 rgba(120,180,255,.12), 0 4px 18px rgba(0,0,0,.4);
   }
-  .stat-value.combo{color:#ffef7a;display:inline-flex;align-items:baseline;gap:6px}
-  .stat-value.combo em{font-style:normal;font-size:13px;padding:0 4px;background:#301c00;color:#ffd23f;border-radius:2px;letter-spacing:.06em}
-  .stat-value.combo.hot{color:#fff3a8;text-shadow:0 0 12px rgba(255,210,63,.6)}
+  /* Divider between HUD cells */
+  #hud .stat{ position:relative; padding:0 14px; }
+  #hud .stat + .stat::before{
+    content:''; position:absolute; left:0; top:12%; height:76%; width:1px;
+    background:linear-gradient(180deg, transparent, rgba(120,160,230,.22), transparent);
+  }
+  .stat-value.combo{color:#ffef7a;display:inline-flex;align-items:baseline;gap:8px}
+  .stat-value.combo em{
+    font-style:normal;font-size:15px;font-weight:800;padding:1px 7px;
+    background:linear-gradient(180deg,#5a3400,#301c00);color:#ffd23f;border-radius:4px;
+    letter-spacing:.06em;border:1px solid #7a4d00;
+    box-shadow:0 0 0 1px rgba(0,0,0,.4);
+  }
+  .stat-value.combo.hot{color:#fff3a8;text-shadow:0 0 14px rgba(255,210,63,.7)}
+  .stat-value.combo.hot em{
+    background:linear-gradient(180deg,#ff9d3b,#c9601e);color:#1a0e00;border-color:#ffcf7a;
+    box-shadow:0 0 12px rgba(255,160,60,.6);
+  }
   .stat-value.combo.pulse{animation:comboPulse .35s ease-out}
-  @keyframes comboPulse{0%{transform:scale(1)}45%{transform:scale(1.18)}100%{transform:scale(1)}}
+  @keyframes comboPulse{0%{transform:scale(1)}45%{transform:scale(1.22)}100%{transform:scale(1)}}
   @media (prefers-reduced-motion: reduce){.stat-value.combo.pulse{animation:none}}
-  .stat{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .stat{display:flex;flex-direction:column;gap:3px;min-width:0}
   .stat-label{
-    font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);
+    font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-dim);font-weight:700;
   }
-  .stat-value{font-size:18px;font-weight:700;color:var(--ink);white-space:nowrap}
-  .stat-value.gold{color:var(--gold)}
+  .stat-value{font-size:20px;font-weight:800;color:var(--ink);white-space:nowrap;line-height:1}
+  .stat-value.gold{color:var(--gold);text-shadow:0 0 12px rgba(255,210,63,.35)}
   .stat-value.fan{color:var(--fan-2)}
   .stat-value.hp{color:var(--good)}
+  #hud-wave{font-size:16px}
   .bar{
-    height:8px;background:#0a1226;border:1px solid var(--line);position:relative;overflow:hidden;
+    height:9px;background:#060c1a;border:1px solid #22406e;position:relative;overflow:hidden;border-radius:3px;
   }
-  .bar > i{display:block;height:100%;transition:width .15s linear}
+  .bar > i{display:block;height:100%;transition:width .18s linear;box-shadow:0 0 8px rgba(255,255,255,.15) inset}
   .bar.hp > i{background:linear-gradient(90deg,#5bff9d,#37c9e0)}
   .bar.fan > i{background:linear-gradient(90deg,#7ce7ff,#3bd0ff)}
-  .wave-name{font-size:13px;color:var(--ink-dim)}
+  .wave-name{font-size:12px;color:var(--ink-dim)}
 
   /* ---- Main area ---- */
   #stage{
@@ -105,59 +124,64 @@
     overflow-y:auto;
   }
   #panel h2{
-    margin:0 0 4px 2px;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-dim);
+    margin:0 0 6px 2px;font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--fan-2);font-weight:800;
+    text-shadow:0 0 10px rgba(59,208,255,.3);
   }
   #tower-grid{
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:6px;
+    gap:8px;
   }
   .tower-btn{
     position:relative;
     display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
-    padding:6px 4px 6px 4px;
-    background:linear-gradient(180deg,#0f1a36 0%,#08122a 100%);
-    border:1px solid #23385f;
-    border-radius:4px;
+    padding:8px 4px 8px 4px;
+    background:linear-gradient(180deg,#13224a 0%,#0a1430 100%);
+    border:1px solid #2c4a7e;
+    border-radius:8px;
     color:var(--ink);
     cursor:pointer;
     font:inherit;
-    transition:transform .06s ease, filter .1s ease, box-shadow .1s ease;
-    min-height:78px;
+    transition:transform .08s ease, filter .12s ease, box-shadow .12s ease, border-color .12s ease;
+    min-height:88px;
     overflow:hidden;
+    box-shadow:inset 0 1px 0 rgba(140,190,255,.14), 0 2px 6px rgba(0,0,0,.35);
   }
   .tower-btn::before{
     content:'';position:absolute;inset:0;
-    background:radial-gradient(60px 40px at 50% 30%, rgba(255,255,255,.05), transparent 70%);
+    background:radial-gradient(70px 46px at 50% 26%, rgba(140,200,255,.10), transparent 72%);
     pointer-events:none;
   }
-  .tower-btn:hover{filter:brightness(1.15)}
-  .tower-btn:focus-visible{outline:2px solid var(--fan);outline-offset:1px}
+  .tower-btn:hover{filter:brightness(1.18);transform:translateY(-1px);border-color:#4a74b8}
+  .tower-btn:focus-visible{outline:2px solid var(--fan);outline-offset:2px}
   .tower-btn.selected{
-    box-shadow:0 0 0 2px var(--fan), 0 0 12px rgba(59,208,255,.35), inset 0 0 20px rgba(59,208,255,.15);
     border-color:var(--fan);
+    box-shadow:0 0 0 2px var(--fan), 0 0 18px rgba(59,208,255,.5), inset 0 0 24px rgba(59,208,255,.2);
+    animation:towerSel 1.4s ease-in-out infinite;
   }
+  @keyframes towerSel{0%,100%{box-shadow:0 0 0 2px var(--fan),0 0 14px rgba(59,208,255,.4),inset 0 0 20px rgba(59,208,255,.15)}50%{box-shadow:0 0 0 2px var(--fan),0 0 26px rgba(59,208,255,.7),inset 0 0 30px rgba(59,208,255,.28)}}
+  @media (prefers-reduced-motion: reduce){.tower-btn.selected{animation:none}}
   .tower-btn.locked{opacity:.38;filter:saturate(.3);cursor:not-allowed}
   .tower-btn:active{transform:translateY(1px)}
   .tower-btn .tglyph{
-    width:100%;height:44px;
+    width:100%;height:50px;
     display:grid;place-items:center;position:relative;
   }
-  .tower-btn .tglyph canvas{width:44px;height:44px;display:block}
+  .tower-btn .tglyph canvas{width:50px;height:50px;display:block}
   .tower-btn .tname{
-    font-size:10.5px;font-weight:700;letter-spacing:.02em;line-height:1;
-    text-align:center;margin-top:2px;
-    color:#dbe6ff;
+    font-size:11px;font-weight:800;letter-spacing:.02em;line-height:1;
+    text-align:center;margin-top:3px;
+    color:#e6efff;
     max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
   .tower-btn .tcost{
-    font-size:11px;color:var(--gold);font-weight:800;font-variant-numeric:tabular-nums;
-    margin-top:2px;
+    font-size:12px;color:var(--gold);font-weight:800;font-variant-numeric:tabular-nums;
+    margin-top:3px;text-shadow:0 0 8px rgba(255,210,63,.3);
   }
   .tower-btn.locked .tcost{color:#ff8a9c}
   .tower-btn .thotkey{
-    position:absolute;top:3px;left:3px;font-size:9px;font-weight:700;color:#d6e2ff;
-    background:rgba(0,0,0,.55);border:1px solid #2c477c;padding:1px 4px;border-radius:2px;
+    position:absolute;top:4px;left:4px;font-size:9px;font-weight:800;color:#cfe0ff;
+    background:rgba(4,10,26,.7);border:1px solid #35578e;padding:1px 5px;border-radius:4px;
     letter-spacing:0;
   }
 
@@ -2427,86 +2451,204 @@ function render(dt){
 }
 
 function drawBackground(){
-  // Venue-aware backdrop
-  const grd = ctx.createLinearGradient(0,0,0,CFG.DESIGN_H);
-  grd.addColorStop(0, RUNTIME_PALETTE.bg0);
-  grd.addColorStop(1, RUNTIME_PALETTE.bg1);
-  ctx.fillStyle = grd;
-  ctx.fillRect(0,0,CFG.DESIGN_W,CFG.DESIGN_H);
+  const W = CFG.DESIGN_W, H = CFG.DESIGN_H, t = GS.time;
+  const neon = (GS.venueKey === 'neon');
+  const accent = RUNTIME_PALETTE.accent || '#3bd0ff';
+  const reduced = CFG.REDUCED_MOTION;
 
-  // faint grid
-  ctx.strokeStyle='rgba(90,140,220,.05)';
-  ctx.lineWidth=1;
-  for(let x=0;x<CFG.DESIGN_W;x+=40){
-    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,CFG.DESIGN_H); ctx.stroke();
+  // Deep venue backdrop — vertical gradient with a bright "arena floor" band toward the vault.
+  const grd = ctx.createLinearGradient(0,0,0,H);
+  grd.addColorStop(0, RUNTIME_PALETTE.bg0);
+  grd.addColorStop(0.55, RUNTIME_PALETTE.bg1);
+  grd.addColorStop(1, RUNTIME_PALETTE.bg0);
+  ctx.fillStyle = grd;
+  ctx.fillRect(0,0,W,H);
+
+  // ---- Upper arena zone: stage rig + crowd stand behind the lanes ----
+  const rigH = CFG.LANE_TOP - 8;
+  // crowd stand gradient
+  const stand = ctx.createLinearGradient(0,0,0,rigH);
+  stand.addColorStop(0, neon ? 'rgba(60,20,80,.55)' : 'rgba(20,34,70,.5)');
+  stand.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = stand;
+  ctx.fillRect(0,0,W,rigH);
+
+  // Moving arena light beams sweeping from the rig (subtle, additive).
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const beamCount = 5;
+  const beamCols = neon ? ['rgba(255,123,214,', 'rgba(77,224,193,', 'rgba(180,122,255,'] : ['rgba(59,208,255,', 'rgba(255,210,63,', 'rgba(124,231,255,'];
+  for(let i=0;i<beamCount;i++){
+    const baseX = (i+0.5) * (W/beamCount);
+    const sway = reduced ? 0 : Math.sin(t*0.6 + i*1.7) * 120;
+    const topX = baseX + sway*0.3;
+    const botX = baseX + sway;
+    const col = beamCols[i % beamCols.length];
+    const alpha = (reduced ? 0.05 : (0.05 + 0.03*Math.sin(t*1.3 + i))) ;
+    const bg = ctx.createLinearGradient(topX, 0, botX, rigH+120);
+    bg.addColorStop(0, col + (alpha) + ')');
+    bg.addColorStop(1, col + '0)');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(topX-6, 0);
+    ctx.lineTo(topX+6, 0);
+    ctx.lineTo(botX+70, rigH+120);
+    ctx.lineTo(botX-70, rigH+120);
+    ctx.closePath();
+    ctx.fill();
   }
-  for(let y=0;y<CFG.DESIGN_H;y+=40){
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(CFG.DESIGN_W,y); ctx.stroke();
+  ctx.restore();
+
+  // Rig truss line with light fixtures across the top.
+  ctx.strokeStyle = neon ? 'rgba(255,123,214,.25)' : 'rgba(90,140,220,.22)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, 26); ctx.lineTo(W, 26); ctx.stroke();
+  for(let i=0;i<16;i++){
+    const fx = 20 + i*(W-40)/15;
+    const on = reduced ? 0.7 : (0.4 + 0.5*Math.abs(Math.sin(t*2 + i*0.9)));
+    ctx.fillStyle = (neon ? 'rgba(255,123,214,' : 'rgba(120,200,255,') + on + ')';
+    ctx.fillRect(fx-2, 22, 4, 8);
   }
+
+  // Crowd silhouette band — many little heads bobbing behind the barrier.
+  const crowdY = rigH - 6;
+  for(let i=0;i<64;i++){
+    const cx = (i*37.3) % W;
+    const phase = (i*1.7);
+    const bob = reduced ? 0 : Math.sin(t*2.2 + phase)*2;
+    const r = 5 + (i%3);
+    ctx.fillStyle = neon ? 'rgba(40,14,60,.85)' : 'rgba(10,20,44,.85)';
+    ctx.beginPath(); ctx.arc(cx, crowdY - r + bob, r, 0, Math.PI*2); ctx.fill();
+    // occasional lit phone/glowstick in the crowd
+    if((i*7)%5===0){
+      ctx.fillStyle = (neon ? 'rgba(124,231,255,' : 'rgba(255,210,63,') + (reduced?0.4:(0.25+0.35*Math.abs(Math.sin(t*3+phase)))) + ')';
+      ctx.fillRect(cx-1, crowdY - r*2 + bob, 2, 4);
+    }
+  }
+  // barrier rail below the crowd
+  ctx.fillStyle = neon ? 'rgba(90,40,120,.5)' : 'rgba(30,50,96,.6)';
+  ctx.fillRect(0, crowdY+2, W, 4);
+
+  // ---- Faint floor grid, tighter near the play area, venue-tinted ----
+  ctx.strokeStyle = neon ? 'rgba(180,122,255,.05)' : 'rgba(90,140,220,.05)';
+  ctx.lineWidth = 1;
+  for(let x=0;x<W;x+=48){
+    ctx.beginPath(); ctx.moveTo(x, CFG.LANE_TOP-20); ctx.lineTo(x, H); ctx.stroke();
+  }
+
+  // ---- Vault-side glow: warm pull toward the thing you protect ----
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const vg = ctx.createRadialGradient(CFG.VAULT_X, H*0.5, 20, CFG.VAULT_X, H*0.5, 360);
+  const vgCol = neon ? 'rgba(255,123,214,' : 'rgba(255,210,63,';
+  vg.addColorStop(0, vgCol + (reduced?0.06:(0.06+0.02*Math.sin(t*1.5))) + ')');
+  vg.addColorStop(1, vgCol + '0)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(W-500, 0, 500, H);
+  ctx.restore();
+
+  // ---- Corner vignette for focus ----
+  const vig = ctx.createRadialGradient(W*0.5, H*0.5, H*0.35, W*0.5, H*0.5, H*0.8);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,0,0,.45)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0,0,W,H);
 }
 
 function drawLanes(){
-  // Spawn strip on the left
-  ctx.fillStyle='rgba(91,255,157,.06)';
-  ctx.fillRect(0, CFG.LANE_TOP-4, 30, CFG.LANE_BOTTOM-CFG.LANE_TOP+8);
-  ctx.fillStyle=COLORS.spawn;
-  ctx.font='bold 10px Inter, system-ui, sans-serif';
-  ctx.textAlign='center';
+  const t_ = GS.time;
+  const neon = (GS.venueKey === 'neon');
+  const accent = RUNTIME_PALETTE.accent || '#3bd0ff';
+  const reduced = CFG.REDUCED_MOTION;
+  const laneLeft = CFG.LANE_LEFT, laneRight = CFG.LANE_RIGHT;
+
+  // Spawn gate on the left — a lit "entry" column.
+  const gateGrd = ctx.createLinearGradient(0, 0, 36, 0);
+  gateGrd.addColorStop(0, neon ? 'rgba(77,224,193,.22)' : 'rgba(91,255,157,.16)');
+  gateGrd.addColorStop(1, 'rgba(91,255,157,0)');
+  ctx.fillStyle = gateGrd;
+  ctx.fillRect(0, CFG.LANE_TOP-8, 36, CFG.LANE_BOTTOM-CFG.LANE_TOP+16);
+  ctx.fillStyle = COLORS.spawn;
+  ctx.font = 'bold 10px Inter, system-ui, sans-serif';
+  ctx.textAlign = 'center';
   ctx.save();
   ctx.translate(14,(CFG.LANE_TOP+CFG.LANE_BOTTOM)/2); ctx.rotate(-Math.PI/2);
   ctx.fillText('CROWD FLOW  →', 0, 4);
   ctx.restore();
 
-  // Lane strips (venue-aware palette)
   for(let i=0;i<CFG.LANES;i++){
     const y = laneY(i);
     const h = laneHeight();
-    ctx.fillStyle = i%2===0 ? RUNTIME_PALETTE.laneEven : RUNTIME_PALETTE.laneOdd;
-    ctx.fillRect(CFG.LANE_LEFT, y-h/2, CFG.LANE_RIGHT-CFG.LANE_LEFT, h);
+    const top = y-h/2, bot = y+h/2;
 
-    // scanner track (bright line down the middle)
-    const grd = ctx.createLinearGradient(CFG.LANE_LEFT, y, CFG.LANE_RIGHT, y);
-    grd.addColorStop(0,'rgba(59,208,255,.35)');
-    grd.addColorStop(0.5,'rgba(59,208,255,.15)');
-    grd.addColorStop(1,'rgba(255,210,63,.45)');
-    ctx.strokeStyle = grd; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(CFG.LANE_LEFT, y); ctx.lineTo(CFG.LANE_RIGHT, y); ctx.stroke();
+    // Lane bed — subtle inner shading so the lane reads as a physical channel.
+    const bed = ctx.createLinearGradient(0, top, 0, bot);
+    const c0 = i%2===0 ? RUNTIME_PALETTE.laneEven : RUNTIME_PALETTE.laneOdd;
+    bed.addColorStop(0, c0);
+    bed.addColorStop(0.5, neon ? 'rgba(40,18,64,.55)' : 'rgba(14,26,54,.55)');
+    bed.addColorStop(1, c0);
+    ctx.fillStyle = bed;
+    ctx.fillRect(laneLeft, top, laneRight-laneLeft, h);
 
-    // dashed edges
-    ctx.setLineDash([6,10]);
-    ctx.strokeStyle = COLORS.laneEdge; ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(CFG.LANE_LEFT, y-h/2); ctx.lineTo(CFG.LANE_RIGHT, y-h/2);
-    ctx.moveTo(CFG.LANE_LEFT, y+h/2); ctx.lineTo(CFG.LANE_RIGHT, y+h/2);
-    ctx.stroke();
+    // Security fencing on lane dividers — chunky posts + rail.
+    ctx.strokeStyle = neon ? 'rgba(150,80,190,.4)' : 'rgba(40,64,116,.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(laneLeft, top); ctx.lineTo(laneRight, top); ctx.stroke();
+    if(i === CFG.LANES-1){ ctx.beginPath(); ctx.moveTo(laneLeft, bot); ctx.lineTo(laneRight, bot); ctx.stroke(); }
+
+    // Animated scanner track — moving dashes flowing toward the vault.
+    ctx.save();
+    const trk = ctx.createLinearGradient(laneLeft, y, laneRight, y);
+    if(neon){
+      trk.addColorStop(0,'rgba(77,224,193,.5)');
+      trk.addColorStop(0.5,'rgba(255,123,214,.28)');
+      trk.addColorStop(1,'rgba(255,123,214,.5)');
+    } else {
+      trk.addColorStop(0,'rgba(59,208,255,.5)');
+      trk.addColorStop(0.5,'rgba(59,208,255,.2)');
+      trk.addColorStop(1,'rgba(255,210,63,.55)');
+    }
+    ctx.strokeStyle = trk;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([14, 16]);
+    ctx.lineDashOffset = reduced ? 0 : (-(t_*60) % 30);
+    ctx.beginPath(); ctx.moveTo(laneLeft, y); ctx.lineTo(laneRight, y); ctx.stroke();
     ctx.setLineDash([]);
+    ctx.restore();
 
-    // lane label
-    ctx.fillStyle=COLORS.inkDim;
-    ctx.font='bold 10px Inter';
-    ctx.textAlign='left';
-    ctx.fillText(`LANE ${i+1}`, CFG.LANE_LEFT+8, y-h/2+12);
+    // Lane label chip
+    ctx.fillStyle = neon ? 'rgba(255,123,214,.5)' : COLORS.inkDim;
+    ctx.font = 'bold 10px Inter';
+    ctx.textAlign = 'left';
+    ctx.fillText(`LANE ${i+1}`, laneLeft+8, top+12);
 
-    // barricade posts
-    for(let k=0;k<8;k++){
-      const px = CFG.LANE_LEFT + 130 + k * ((CFG.LANE_RIGHT-CFG.LANE_LEFT-160)/7);
-      ctx.fillStyle='#1a2c56';
-      ctx.fillRect(px-1, y-h/2-3, 2, 3);
-      ctx.fillRect(px-1, y+h/2, 2, 3);
+    // Chunky barricade posts along the dividers (scanner-gate uprights).
+    const postCol = neon ? '#3a1a52' : '#1a2c56';
+    const postLit = neon ? 'rgba(255,123,214,.5)' : 'rgba(120,200,255,.4)';
+    for(let k=0;k<9;k++){
+      const px = laneLeft + 120 + k * ((laneRight-laneLeft-150)/8);
+      ctx.fillStyle = postCol;
+      ctx.fillRect(px-2, top-5, 4, 6);
+      ctx.fillRect(px-2, bot-1, 4, 6);
+      ctx.fillStyle = postLit;
+      ctx.fillRect(px-1, top-5, 2, 2);
+      ctx.fillRect(px-1, bot+3, 2, 2);
     }
   }
 
-  // Direction arrow at spawn
-  const t_ = GS.time;
-  const arrowX = 30 + (t_*30 % 30);
-  ctx.fillStyle='rgba(91,255,157,.5)';
-  for(let i=0;i<3;i++){
-    const y = laneY(1);
-    ctx.beginPath();
-    ctx.moveTo(arrowX + i*22 -8, y-8);
-    ctx.lineTo(arrowX + i*22 +2, y);
-    ctx.lineTo(arrowX + i*22 -8, y+8);
-    ctx.closePath(); ctx.fill();
+  // Flowing direction chevrons at the spawn side (all lanes, subtle).
+  const arrowX = 34 + (reduced ? 0 : (t_*34 % 30));
+  for(let li=0; li<CFG.LANES; li++){
+    const y = laneY(li);
+    for(let i=0;i<3;i++){
+      const a = 0.5 - i*0.14;
+      ctx.fillStyle = (neon ? 'rgba(77,224,193,' : 'rgba(91,255,157,') + a + ')';
+      ctx.beginPath();
+      ctx.moveTo(arrowX + i*20 -7, y-7);
+      ctx.lineTo(arrowX + i*20 +3, y);
+      ctx.lineTo(arrowX + i*20 -7, y+7);
+      ctx.closePath(); ctx.fill();
+    }
   }
 }
 
