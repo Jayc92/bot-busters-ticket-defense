@@ -338,6 +338,7 @@
   }
   #ctx-menu.show{display:block}
   #ctx-menu .row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 2px;font-size:12px}
+  #ctx-menu .ctx-next{font-size:11px;line-height:1.25;color:#9fd0ff;margin:4px 2px 2px;min-height:14px}
   #ctx-menu .actions{display:flex;gap:6px;margin-top:6px}
   #ctx-menu button{flex:1}
 
@@ -441,6 +442,7 @@
         <div class="row"><b id="ctx-name">Tower</b><span id="ctx-lvl">Lv 1</span></div>
         <div class="row"><span>Damage</span><span id="ctx-dmg">—</span></div>
         <div class="row"><span>Range</span><span id="ctx-rng">—</span></div>
+        <div class="ctx-next" id="ctx-next"></div>
         <div class="actions">
           <button class="btn primary" id="ctx-upgrade">Upgrade</button>
           <button class="btn danger" id="ctx-sell">Sell</button>
@@ -573,6 +575,11 @@ const COLORS = {
   velocity:'#b47aff',
   resale:'#ffd23f',
   drone:'#8ea8ff',
+  gate:'#5be0ff',       // Security Gate — cyan hold beam
+  analyzer:'#ff5ea8',   // AI Risk Analyzer — hot pink mark
+  jammer:'#7affd0',     // Bot Jammer — mint disruptor
+  queue:'#a0ff6a',      // Queue Manager — green flow field
+  camera:'#8fd6ff',     // Security Camera — pale reveal
   ink:'#e9f1ff',
   inkDim:'#8ea3c7',
 };
@@ -628,6 +635,7 @@ const GS = {
   entities:[],
   towers:[],
   projectiles:[],
+  arcs:[],                 // chain-lightning arcs (Velocity Lv3)
   particles:[],
   floaties:[],             // floating "+$5" text
   waveTimer:0,             // countdown between waves
@@ -699,82 +707,160 @@ const TOWERS = {
   captcha: {
     key:'captcha', name:'CAPTCHA Cannon',
     short:'Single-target damage. Ignores fans.',
+    // v1.1 meaningful upgrades: Lv2 double-tap, Lv3 splash
+    upgradeDesc:['Single shot','Fires two quick shots','Shots deal small splash damage'],
     hotkey:'1', color:COLORS.captcha,
-    cost:[60,50,70],   // base + upgrade1 + upgrade2
-    // per-level stats [lv1, lv2, lv3]
+    cost:[60,50,70],
     range:[160,190,230],
-    damage:[12,18,28],
-    fireRate:[0.55,0.46,0.4],  // seconds between shots
+    damage:[12,16,22],
+    fireRate:[0.55,0.46,0.4],
     projectileSpeed:[540,600,660],
-    targetKinds:['bot'],       // ignores fans by design
+    targetKinds:['bot'],
+    splashRadius:[0,0,58],       // Lv3 splash
+    splashDamage:[0,0,0.5],      // fraction of hit damage to nearby bots
   },
   shield: {
     key:'shield', name:'Verified Fan Shield',
     short:'Tags fans as verified. Speed boost + safety glow.',
+    upgradeDesc:['Verifies fans','Bigger speed boost','Verified fans restore Fan Satisfaction'],
     hotkey:'2', color:COLORS.shield,
     cost:[45,40,60],
     range:[140,170,200],
     damage:[0,0,0],
     fireRate:[0.35,0.28,0.22],
-    tagStrength:[1.15,1.25,1.35],
+    tagStrength:[1.15,1.35,1.45],   // Lv2 larger boost
+    satRestore:[0,0,3],             // Lv3 fan-sat restore per verified-safe fan
   },
   scanner: {
     key:'scanner', name:'Device Fingerprint Scanner',
     short:'Reveals disguised ATO bots in range.',
+    upgradeDesc:['Reveals disguised bots','Bigger reveal radius','Revealed bots take +damage for 4s'],
     hotkey:'3', color:COLORS.scanner,
-    cost:[70,60,80],           // cheaper — critical for W3
-    range:[180,220,260],       // wider so one scanner can cover 2 lanes
+    cost:[70,60,80],
+    range:[180,235,280],            // Lv2 bigger radius
     damage:[0,0,0],
-    fireRate:[0.25,0.2,0.15],  // reveals quickly
+    fireRate:[0.25,0.2,0.15],
+    markDamage:[0,0,1.4],           // Lv3: revealed bots take 1.4x damage
+    markDuration:[0,0,4],
   },
   wall: {
     key:'wall', name:'Purchase Limit Wall',
     short:'Slow field. Slows bots. Fans unaffected.',
+    upgradeDesc:['Slows bots','Larger slow field','Bots briefly freeze on entry'],
     hotkey:'4', color:COLORS.wall,
     cost:[70,60,80],
-    range:[110,130,160],
+    range:[110,140,170],            // Lv2 larger field
     damage:[0,0,0],
     fireRate:[0.2,0.2,0.2],
-    slowFactor:[0.65,0.55,0.4],  // multiplier applied to bot speed
+    slowFactor:[0.65,0.55,0.45],
+    entryFreeze:[0,0,0.6],          // Lv3: freeze bots ~0.6s on first entry
   },
   velocity: {
     key:'velocity', name:'Suspicious Velocity Trap',
     short:'Heavy damage to fast bots. Weak vs slow.',
+    upgradeDesc:['Hits fast bots','Higher damage','Chains lightning to nearby fast bots'],
     hotkey:'5', color:COLORS.velocity,
     cost:[90,70,110],
     range:[160,190,220],
-    damage:[14,22,34],          // base; scaled by speed ratio (softened W6)
+    damage:[14,24,34],
     fireRate:[0.42,0.36,0.30],
     projectileSpeed:[660,720,780],
-    speedRefFast:120,           // above this = full damage (burst=170, proxy=82)
-    speedRefSlow:60,            // at/below this = min damage
+    speedRefFast:120,
+    speedRefSlow:60,
     minMult:0.35,
+    chainCount:[0,0,2],             // Lv3: chain to N nearby fast bots
+    chainRange:[0,0,120],
   },
   resale: {
     key:'resale', name:'Resale Monitor',
     short:'Bonus credits per bot kill + wave trickle.',
+    upgradeDesc:['Bonus per nearby kill','Larger income radius','Passive income every wave'],
     hotkey:'6', color:COLORS.resale,
     cost:[80,70,100],
-    range:[180,210,240],        // wider bonus radius
-    damage:[4,6,10],            // light chip damage
+    range:[180,230,260],            // Lv2 larger radius
+    damage:[4,6,10],
     fireRate:[0.9,0.75,0.65],
     projectileSpeed:[420,460,500],
-    bonusCredits:[8,14,22],     // stronger bonus
-    tickTrickle:[6,10,16],      // credits per wave-clear per monitor
+    bonusCredits:[8,14,22],
+    tickTrickle:[6,12,20],          // Lv3 stronger passive
   },
   drone: {
     key:'drone', name:'Fraud Review Drone',
     short:'Mobile patrol. Stuns bots it touches.',
+    upgradeDesc:['Patrols and stuns bots','Patrols faster','Deploys a second drone'],
     hotkey:'7', color:COLORS.drone,
     cost:[110,90,140],
-    range:[80,100,120],         // touch radius
+    range:[80,100,120],
     damage:[0,0,0],
     fireRate:[0.2,0.2,0.2],
     stunDuration:[1.4,1.8,2.4],
-    patrolSpeed:[120,150,180],
+    patrolSpeed:[120,170,190],      // Lv2 faster
+    droneCount:[1,1,2],             // Lv3 second drone
+  },
+  // ---- v1.1 NEW TOWERS ----
+  gate: {
+    key:'gate', name:'Security Gate',
+    short:'Bots pause at the gate. Fans pass freely.',
+    upgradeDesc:['Bots pause briefly','Longer pause','Pause + short slow after'],
+    hotkey:'8', color:COLORS.gate,
+    cost:[85,70,95],
+    range:[105,120,140],            // must reach the adjacent lane path
+    damage:[0,0,0],
+    fireRate:[0.2,0.2,0.2],
+    holdDuration:[0.7,1.1,1.5],     // how long a bot is held
+    holdCooldown:[2.2,1.8,1.4],     // per-bot re-hold cooldown
+    afterSlow:[1,1,0.6],            // Lv3 lingering slow multiplier
+  },
+  analyzer: {
+    key:'analyzer', name:'AI Risk Analyzer',
+    short:'Marks dangerous bots. Marked bots take +damage.',
+    upgradeDesc:['Marks tough bots (+30% dmg taken)','Marks more, stronger','Marks everything, +60%'],
+    hotkey:'9', color:COLORS.analyzer,
+    cost:[95,80,110],
+    range:[180,210,240],
+    damage:[0,0,0],
+    fireRate:[0.6,0.45,0.35],
+    markMult:[1.3,1.45,1.6],        // damage multiplier on marked bots
+    markDuration:[3.5,4.5,6],
+    marksMinis:[false,true,true],   // Lv1 only tough bots; Lv2+ minis/swarm too
+  },
+  jammer: {
+    key:'jammer', name:'Bot Jammer',
+    short:'Disables Proxy lane-switching in range.',
+    upgradeDesc:['Blocks Proxy jumps','Bigger jam field','Jam also slows Proxy/Burst'],
+    hotkey:'0', color:COLORS.jammer,
+    cost:[80,65,90],
+    range:[170,210,250],
+    damage:[0,0,0],
+    fireRate:[0.2,0.2,0.2],
+    jamSlow:[1,1,0.7],              // Lv3 also slows fast bots in field
+  },
+  queue: {
+    key:'queue', name:'Queue Manager',
+    short:'Speeds nearby fans. Slightly slows nearby bots.',
+    upgradeDesc:['Speeds fans, slows bots','Stronger effect','Fans gain brief shield too'],
+    hotkey:'q', color:COLORS.queue,
+    cost:[75,65,90],
+    range:[150,180,210],
+    damage:[0,0,0],
+    fireRate:[0.3,0.3,0.3],
+    fanSpeed:[1.2,1.3,1.4],
+    botSlow:[0.85,0.78,0.7],
+    autoVerify:[false,false,true],  // Lv3: fans passing through get verified glow
+  },
+  camera: {
+    key:'camera', name:'Security Camera',
+    short:'Huge reveal radius. Great vs disguised bots.',
+    upgradeDesc:['Wide reveal radius','Even wider + faster','Permanently exposes on reveal'],
+    hotkey:'c', color:COLORS.camera,
+    cost:[90,70,100],
+    range:[280,340,400],            // much wider than scanner
+    damage:[0,0,0],
+    fireRate:[0.4,0.28,0.2],
+    permaExpose:[false,false,true], // Lv3: cannot re-disguise (all ATO are one-shot revealed anyway; flavor + reveal FX)
   },
 };
-const TOWER_ORDER = ['captcha','shield','scanner','wall','velocity','resale','drone'];
+const TOWER_ORDER = ['captcha','shield','scanner','wall','velocity','resale','drone','gate','analyzer','jammer','queue','camera'];
 
 /* ---------------------------------------------------------------------------
  * [6] WAVES
@@ -849,89 +935,121 @@ const WAVES = [
       {t:18.6,type:'fan',  lane:2},
     ]
   },
-  // Wave 4 — Proxy Network. Lane-switchers punish single-lane coverage.
+  // Wave 4 — Proxy Network. v1.1: ~20% more pressure, mixed types, wider lanes.
   {
     num:4, name:'Proxy Network',
-    hint:'Proxy bots jump lanes — slow or stun before they dodge.',
-    reward:160,
+    hint:'Proxy bots jump lanes — jam, slow, or stun before they dodge.',
+    reward:180,
     spawns:[
+      // Two-lane opening — forces coverage on both flanks immediately
       {t:0.4, type:'proxy',lane:0},
-      {t:1.6, type:'fan',  lane:2},
-      {t:2.8, type:'proxy',lane:1},
-      {t:4.0, type:'proxy',lane:3},
-      {t:5.4, group:{type:'swarm', count:5, lane:2, spacing:0.3}},
-      {t:7.6, type:'proxy',lane:0},
-      {t:8.4, type:'fan',  lane:1},
-      {t:9.4, type:'proxy',lane:2},
-      {t:10.6,type:'fan',  lane:3},
-      {t:11.8,type:'proxy',lane:1},
-      {t:13.0,type:'proxy',lane:3},
-      {t:14.4,type:'ato',  lane:0},
-      {t:15.6,type:'fan',  lane:2},
-      {t:16.4,type:'proxy',lane:2},
+      {t:0.7, type:'proxy',lane:3},
+      {t:1.8, type:'fan',  lane:2},
+      {t:2.6, type:'proxy',lane:1},
+      // Swarm + a proxy escort in a different lane at the same time
+      {t:3.8, group:{type:'swarm', count:5, lane:2, spacing:0.3}},
+      {t:4.2, type:'proxy',lane:0},
+      {t:6.0, type:'fan',  lane:1},
+      {t:6.6, type:'proxy',lane:3},
+      {t:7.2, type:'ato',  lane:2},   // hidden threat mixed in earlier
+      {t:8.2, group:{type:'swarm', count:4, lane:0, spacing:0.3}},
+      {t:8.6, type:'proxy',lane:1},
+      {t:10.0,type:'fan',  lane:3},
+      {t:10.6,type:'proxy',lane:2},
+      {t:11.4,type:'proxy',lane:0},
+      {t:12.6,type:'ato',  lane:1},
+      {t:13.4,type:'fan',  lane:2},
+      {t:14.0,type:'proxy',lane:3},
+      {t:14.6,type:'proxy',lane:1},
+      {t:15.8,type:'fan',  lane:0},
+      {t:16.4,group:{type:'swarm', count:4, lane:2, spacing:0.28}},
+      {t:16.8,type:'proxy',lane:0},
     ]
   },
-  // Wave 5 — Fake Identity Farm splits into mini-bots on death.
+  // Wave 5 — Fake Identity Farm. v1.1: ~25% more, simultaneous multi-lane,
+  // proxies escorting farms, farms split while other attacks land.
   {
     num:5, name:'Fake Identity Farm',
-    hint:'Farms split into mini-bots — control the scatter.',
-    reward:240,
+    hint:'Farms split under fire while proxies escort — control the scatter.',
+    reward:260,
     spawns:[
       {t:0.4, type:'fan',  lane:1},
-      {t:1.2, type:'farm', lane:0},
-      {t:3.0, type:'farm', lane:2},
-      {t:4.6, type:'ato',  lane:3},
-      {t:6.0, type:'farm', lane:1},
-      {t:7.4, type:'fan',  lane:2},
-      {t:8.4, type:'proxy',lane:0},
-      {t:9.6, type:'farm', lane:3},
-      {t:11.0,type:'fan',  lane:0},
-      {t:12.0,type:'farm', lane:2},
-      {t:13.6,type:'proxy',lane:1},
-      {t:14.8,type:'farm', lane:0},
-      {t:16.4,type:'fan',  lane:3},
+      // Two farms enter opposite lanes at once, each with a proxy escort
+      {t:1.0, type:'farm', lane:0},
+      {t:1.3, type:'proxy',lane:0},
+      {t:1.2, type:'farm', lane:3},
+      {t:1.6, type:'proxy',lane:3},
+      // Swarm pressure on a THIRD lane while farms advance
+      {t:3.0, group:{type:'swarm', count:5, lane:2, spacing:0.28}},
+      {t:4.4, type:'ato',  lane:1},
+      {t:5.0, type:'farm', lane:1},
+      {t:5.4, type:'proxy',lane:2},
+      {t:6.4, type:'fan',  lane:2},
+      // Double farm again + a burst to punish clustered towers
+      {t:7.2, type:'farm', lane:0},
+      {t:7.6, type:'farm', lane:3},
+      {t:8.0, type:'burst',lane:2},
+      {t:9.2, type:'proxy',lane:1},
+      {t:9.8, group:{type:'swarm', count:4, lane:0, spacing:0.28}},
+      {t:10.6,type:'fan',  lane:3},
+      {t:11.2,type:'farm', lane:2},
+      {t:11.6,type:'ato',  lane:0},
+      {t:12.8,type:'farm', lane:1},
+      {t:13.2,type:'proxy',lane:3},
+      {t:14.2,type:'farm', lane:0},
+      {t:14.6,type:'farm', lane:2},   // final double-farm split under pressure
+      {t:15.4,type:'fan',  lane:1},
+      {t:16.0,group:{type:'swarm', count:4, lane:3, spacing:0.26}},
     ]
   },
-  // Wave 6 — Last-Second Checkout Rush. All threats + burst bots.
+  // Wave 6 — Last-Second Checkout Rush. v1.1: genuine survival wave built from
+  // combinations, not HP inflation. Constant decisions across all four lanes.
   {
     num:6, name:'Last-Second Checkout Rush',
-    hint:'Everything at once — Velocity Trap counters fast bots.',
-    reward:300,
+    hint:'Everything at once — spread coverage and use the whole kit.',
+    reward:340,
     spawns:[
-      // Opening probe
-      {t:0.6, type:'bot',   lane:0},
-      {t:1.2, type:'bot',   lane:3},
-      {t:2.0, type:'fan',   lane:1},
-      // ATO wave — scanner-check
-      {t:2.6, type:'ato',   lane:2},
-      {t:3.4, type:'ato',   lane:1},
-      // Swarm
-      {t:4.4, group:{type:'swarm', count:5, lane:2, spacing:0.28}},
-      {t:5.6, type:'fan',   lane:3},
-      // Proxy
-      {t:6.4, type:'proxy', lane:0},
-      {t:7.4, type:'proxy', lane:2},
-      // Farm midboss
-      {t:8.4, type:'farm',  lane:1},
-      {t:9.6, type:'fan',   lane:0},
-      {t:10.4,type:'farm',  lane:3},
-      // First burst chunk
-      {t:11.6,type:'burst', lane:0},
-      {t:12.0,type:'burst', lane:2},
-      // ATO mixed in
-      {t:12.6,type:'ato',   lane:3},
-      // Burst group (softer spacing)
-      {t:13.4,group:{type:'burst', count:4, lane:1, spacing:0.28}},
-      {t:14.8,type:'fan',   lane:2},
-      // Swarm + burst chaos
-      {t:15.6,group:{type:'swarm', count:4, lane:3, spacing:0.26}},
-      {t:16.6,type:'proxy', lane:1},
-      // Final rush
-      {t:18.0,group:{type:'burst', count:5, lane:0, spacing:0.26}},
-      {t:19.6,type:'ato',   lane:2},
-      {t:20.4,type:'burst', lane:3},
-      {t:20.8,type:'fan',   lane:1},
-      {t:21.8,group:{type:'burst', count:4, lane:2, spacing:0.26}},
+      // Opening probe on both flanks
+      {t:0.5, type:'bot',   lane:0},
+      {t:0.8, type:'bot',   lane:3},
+      {t:1.6, type:'fan',   lane:1},
+      // ATO hidden in a fan group — scanner/camera check under time pressure
+      {t:2.2, type:'fan',   lane:2},
+      {t:2.5, type:'ato',   lane:2},
+      {t:2.8, type:'ato',   lane:1},
+      // Swarm + proxy escort simultaneously in different lanes
+      {t:3.8, group:{type:'swarm', count:5, lane:2, spacing:0.26}},
+      {t:4.0, type:'proxy', lane:0},
+      {t:5.2, type:'fan',   lane:3},
+      {t:5.6, type:'proxy', lane:1},
+      // Two farms escorted by proxies — split threat mid-wave
+      {t:6.6, type:'farm',  lane:1},
+      {t:6.9, type:'proxy', lane:1},
+      {t:7.0, type:'farm',  lane:3},
+      {t:8.4, type:'fan',   lane:0},
+      // Bursts start immediately after an ATO reveal window
+      {t:8.8, type:'ato',   lane:0},
+      {t:9.2, type:'burst', lane:0},
+      {t:9.5, type:'burst', lane:2},
+      // Swarm + burst combined chaos
+      {t:10.6,group:{type:'swarm', count:4, lane:1, spacing:0.24}},
+      {t:11.0,type:'burst', lane:3},
+      {t:12.0,type:'farm',  lane:2},
+      {t:12.4,type:'proxy', lane:2},
+      {t:13.0,group:{type:'burst', count:4, lane:0, spacing:0.26}},
+      {t:14.2,type:'fan',   lane:1},
+      {t:14.6,type:'ato',   lane:3},
+      {t:15.2,group:{type:'swarm', count:5, lane:2, spacing:0.24}},
+      {t:15.6,type:'burst', lane:1},
+      // Final rush — mixed everything across all lanes
+      {t:17.0,group:{type:'burst', count:5, lane:0, spacing:0.24}},
+      {t:17.4,type:'proxy', lane:2},
+      {t:18.4,type:'farm',  lane:3},
+      {t:18.8,type:'ato',   lane:1},
+      {t:19.6,type:'burst', lane:2},
+      {t:20.0,type:'fan',   lane:0},
+      {t:20.6,group:{type:'burst', count:4, lane:3, spacing:0.24}},
+      {t:21.2,group:{type:'burst', count:4, lane:1, spacing:0.24}},
     ]
   },
 ];
@@ -1495,6 +1613,99 @@ function drawTowerIcon(ctx, cx, cy, key, level=1, t=0, size=1){
       drawLevelPips(ctx, 0, 12*s, level);
       break;
     }
+    case 'gate':{
+      // Two turnstile posts with a horizontal hold-beam between them.
+      ctx.fillStyle=COLORS.gate;
+      ctx.fillRect(-11*s, -12*s, 4*s, 20*s);
+      ctx.fillRect(7*s, -12*s, 4*s, 20*s);
+      // top caps
+      ctx.fillRect(-12*s, -13*s, 6*s, 3*s);
+      ctx.fillRect(6*s, -13*s, 6*s, 3*s);
+      // pulsing hold beam (horizontal bars)
+      const gp = 0.5+0.5*Math.sin(t*6);
+      ctx.strokeStyle=COLORS.gate; ctx.lineWidth=2*s; ctx.globalAlpha=0.5+0.4*gp;
+      for(let i=0;i<3;i++){
+        const yy = -6*s + i*6*s;
+        ctx.beginPath(); ctx.moveTo(-7*s, yy); ctx.lineTo(7*s, yy); ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+      drawLevelPips(ctx, 0, 12*s, level);
+      break;
+    }
+    case 'analyzer':{
+      // Diamond "AI" scanner with a targeting reticle.
+      ctx.fillStyle=COLORS.analyzer;
+      ctx.beginPath();
+      ctx.moveTo(0,-13*s); ctx.lineTo(11*s,-1*s); ctx.lineTo(0,11*s); ctx.lineTo(-11*s,-1*s); ctx.closePath();
+      ctx.fill();
+      // reticle brackets (rotating)
+      ctx.save();
+      ctx.rotate((t*1.2)%(Math.PI*2));
+      ctx.strokeStyle='#0a1428'; ctx.lineWidth=1.6*s;
+      const rr=6*s;
+      for(let i=0;i<4;i++){
+        const a=i*Math.PI/2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a)*rr, Math.sin(a)*rr - 1*s);
+        ctx.lineTo(Math.cos(a+0.5)*rr, Math.sin(a+0.5)*rr - 1*s);
+        ctx.stroke();
+      }
+      ctx.restore();
+      ctx.fillStyle='#0a1428'; ctx.beginPath(); ctx.arc(0,-1*s,2*s,0,Math.PI*2); ctx.fill();
+      drawLevelPips(ctx, 0, 12*s, level);
+      break;
+    }
+    case 'jammer':{
+      // Dish emitter with radiating waves.
+      ctx.fillStyle=COLORS.jammer;
+      ctx.beginPath(); ctx.arc(0,2*s, 9*s, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#0a1428'; ctx.fillRect(-1.5*s, -10*s, 3*s, 10*s);
+      // emitter tip
+      ctx.fillStyle=COLORS.jammer; ctx.beginPath(); ctx.arc(0,-10*s,2.5*s,0,Math.PI*2); ctx.fill();
+      // radiating jam waves
+      ctx.strokeStyle=COLORS.jammer; ctx.lineWidth=1.4*s;
+      for(let i=0;i<3;i++){
+        const rp = ((t*0.8 + i/3)%1);
+        ctx.globalAlpha = 0.5*(1-rp);
+        ctx.beginPath(); ctx.arc(0,-10*s, 3*s + rp*10*s, -Math.PI*0.8, -Math.PI*0.2); ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+      drawLevelPips(ctx, 0, 12*s, level);
+      break;
+    }
+    case 'queue':{
+      // Flow arrows in a rounded lane sign.
+      ctx.fillStyle=COLORS.queue;
+      roundRect(ctx, -11*s, -9*s, 22*s, 16*s, 4, true, false);
+      ctx.fillStyle='#0a1428';
+      const off = (t*14)% (6*s);
+      for(let i=0;i<3;i++){
+        const ax = -7*s + i*6*s + (off%(6*s));
+        ctx.beginPath();
+        ctx.moveTo(ax-3*s, -4*s); ctx.lineTo(ax, -1*s); ctx.lineTo(ax-3*s, 2*s);
+        ctx.lineTo(ax-1*s,-1*s); ctx.closePath(); ctx.fill();
+      }
+      drawLevelPips(ctx, 0, 12*s, level);
+      break;
+    }
+    case 'camera':{
+      // CCTV body with a wide lens and a scanning cone.
+      ctx.fillStyle=COLORS.camera;
+      roundRect(ctx, -10*s, -8*s, 16*s, 9*s, 2, true, false);
+      // lens
+      ctx.fillStyle='#0a1428'; ctx.beginPath(); ctx.arc(6*s, -3*s, 4*s, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle=COLORS.camera; ctx.beginPath(); ctx.arc(6*s, -3*s, 1.6*s, 0, Math.PI*2); ctx.fill();
+      // mount
+      ctx.fillStyle=COLORS.camera; ctx.fillRect(-2*s, 1*s, 3*s, 7*s);
+      // scan cone
+      ctx.save();
+      ctx.globalAlpha = 0.25 + 0.15*Math.sin(t*4);
+      ctx.fillStyle=COLORS.camera;
+      ctx.beginPath(); ctx.moveTo(8*s,-3*s); ctx.lineTo(20*s,-10*s); ctx.lineTo(20*s,4*s); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      drawLevelPips(ctx, 0, 12*s, level);
+      break;
+    }
   }
   ctx.restore();
 }
@@ -1639,9 +1850,11 @@ canvas.addEventListener('touchend',   ()=>{ GS.hoverCell = null; });
 
 /* Keyboard shortcuts: 1..7 select towers, Esc deselect, Space start wave */
 window.addEventListener('keydown',(e)=>{
-  if(e.key >= '1' && e.key <= '7'){
-    const k = TOWER_ORDER[parseInt(e.key,10)-1];
-    if(k) selectTowerType(k);
+  // Hotkeys mapped to each tower's own `hotkey` field (1-9,0,q,c).
+  const hk = (e.key||'').toLowerCase();
+  const byHotkey = TOWER_ORDER.find(k => TOWERS[k].hotkey === hk);
+  if(byHotkey){
+    selectTowerType(byHotkey);
   } else if(e.key === 'Escape'){
     GS.selectedTowerType = null;
     hideCtxMenu();
@@ -1700,6 +1913,11 @@ function spawnEntity(type, laneIdx){
     splitsInto: base.splitsInto,
     hitFlash:0,
     alive:true,
+    // v1.1 status fields
+    markUntil:0, markMult:1,        // AI Risk Analyzer
+    revealMarkUntil:0, revealMarkMult:1, // Scanner Lv3 reveal-vulnerability
+    jammed:false,                   // Bot Jammer (proxy jump disabled)
+    heldUntil:0, heldCooldownUntil:0, // Security Gate hold
   };
   GS.entities.push(e);
 }
@@ -1887,6 +2105,7 @@ function comboBreak(reason){
 }
 
 function completeWave(){
+  if(GS.mode !== 'playing') return;   // don't award a win after a loss/end
   const w = WAVES[GS.waveIdx];
   GS.credits += w.reward;
   const sMult = scoreMult();
@@ -1937,7 +2156,12 @@ function completeWave(){
 /* Damage entity. Awards credits when killed. */
 function damageEntity(e, dmg, byTower){
   if(!e.alive) return;
-  e.hp -= dmg;
+  // v1.1: AI Risk Analyzer mark + Scanner Lv3 reveal-vulnerability amplify damage.
+  const t_now = GS.time;
+  let mult = 1;
+  if(e.markUntil > t_now) mult *= e.markMult;
+  if(e.revealMarkUntil > t_now) mult *= e.revealMarkMult;
+  e.hp -= dmg * mult;
   e.hitFlash = 0.12;
   sfxHit();
   if(e.hp <= 0){
@@ -2089,6 +2313,25 @@ function reachVault(e){
 }
 
 /* Tower targeting. */
+/* Reveal a disguised ATO bot (shared by Scanner + Camera). */
+function revealEntity(e, t_now){
+  e.revealed = true;
+  e.disguised = false;
+  e.kind = 'bot';
+  e.hitFlash = 0.4;
+  e.revealAt = t_now;
+  burst(e.x, e.y, COLORS.disguise);
+  burst(e.x, e.y, COLORS.bot);
+  spark(e.x, e.y-16, '#ff2a55');
+  spark(e.x, e.y-16, '#ffffff');
+  showFloaty(e.x, e.y-24, 'REVEALED!', '#ff2a55');
+  if(!GS.cues.firstReveal){
+    GS.cues.firstReveal = true;
+    showFloaty(e.x, e.y+30, 'Scanner caught a fake fan!', COLORS.scanner);
+  }
+  sfxHit();
+}
+
 function pickTargetForTower(t){
   const now_ = now();
   let best = null; let bestX = -Infinity;
@@ -2168,32 +2411,99 @@ function tickTowers(dt){
         }
         break;
       }
-      case 'scanner': {
+      case 'scanner':
+      case 'camera': {
+        const cfg = TOWERS[t.key];
         if(t.cooldown <= 0){
           for(const e of GS.entities){
             if(!e.alive) continue;
             if(!e.disguised || e.revealed) continue;
             if(dist2(t.x,t.y,e.x,e.y) < t.range*t.range){
-              e.revealed = true;
-              e.disguised = false;
-              e.kind = 'bot';
-              e.hitFlash = 0.4;
-              e.revealAt = t_now;
-              // Big reveal burst: blue-to-red pop + scrap sparks
-              burst(e.x, e.y, COLORS.disguise);
-              burst(e.x, e.y, COLORS.bot);
-              spark(e.x, e.y-16, '#ff2a55');
-              spark(e.x, e.y-16, '#ffffff');
-              showFloaty(e.x, e.y-24, 'REVEALED!', '#ff2a55');
-              // Teaching cue on first reveal
-              if(!GS.cues.firstReveal){
-                GS.cues.firstReveal = true;
-                showFloaty(e.x, e.y+30, 'Scanner caught a fake fan!', COLORS.scanner);
+              revealEntity(e, t_now);
+              // Scanner Lv3: revealed bots take bonus damage for a few seconds
+              if(t.key==='scanner' && (cfg.markDamage[t.level-1]||1) > 1){
+                e.revealMarkUntil = t_now + cfg.markDuration[t.level-1];
+                e.revealMarkMult = cfg.markDamage[t.level-1];
               }
-              sfxHit();
             }
           }
-          t.cooldown = TOWERS.scanner.fireRate[t.level-1];
+          t.cooldown = cfg.fireRate[t.level-1];
+        }
+        break;
+      }
+      case 'gate': {
+        // Bots are held briefly at the gate; fans pass freely.
+        const cfg = TOWERS.gate;
+        for(const e of GS.entities){
+          if(!e.alive || e.kind!=='bot') continue;
+          if(e.disguised && !e.revealed) continue; // can't tell disguised from fans
+          if(dist2(t.x,t.y,e.x,e.y) < t.range*t.range){
+            if(t_now >= e.heldCooldownUntil){
+              e.heldUntil = t_now + cfg.holdDuration[t.level-1];
+              e.heldCooldownUntil = t_now + cfg.holdDuration[t.level-1] + cfg.holdCooldown[t.level-1];
+              spark(e.x, e.y-14, COLORS.gate);
+              // Lv3 lingering slow after the hold
+              if(cfg.afterSlow[t.level-1] < 1){
+                e.slowFactor = Math.min(e.slowFactor, cfg.afterSlow[t.level-1]);
+                e.slowUntil = e.heldUntil + 1.2;
+              }
+            }
+          }
+        }
+        break;
+      }
+      case 'analyzer': {
+        // Marks dangerous bots so all towers deal bonus damage to them.
+        const cfg = TOWERS.analyzer;
+        if(t.cooldown <= 0){
+          const marksSmall = cfg.marksMinis[t.level-1];
+          for(const e of GS.entities){
+            if(!e.alive || e.kind!=='bot') continue;
+            if(e.disguised && !e.revealed) continue;
+            const isTough = (e.type==='farm'||e.type==='proxy'||e.type==='burst'||e.type==='ato'||e.type==='bot');
+            if(!marksSmall && !isTough) continue;
+            if(e.markUntil > t_now) continue; // already marked
+            if(dist2(t.x,t.y,e.x,e.y) < t.range*t.range){
+              e.markUntil = t_now + cfg.markDuration[t.level-1];
+              e.markMult = cfg.markMult[t.level-1];
+              spark(e.x, e.y-16, COLORS.analyzer);
+            }
+          }
+          t.cooldown = cfg.fireRate[t.level-1];
+        }
+        break;
+      }
+      case 'jammer': {
+        // Disables proxy lane-switching within range; Lv3 also slows fast bots.
+        const cfg = TOWERS.jammer;
+        for(const e of GS.entities){
+          if(!e.alive || e.kind!=='bot') continue;
+          if(dist2(t.x,t.y,e.x,e.y) < t.range*t.range){
+            if(e.canSwitchLane) e.jammed = true;
+            if(cfg.jamSlow[t.level-1] < 1 && (e.type==='proxy'||e.type==='burst')){
+              e.slowFactor = Math.min(e.slowFactor, cfg.jamSlow[t.level-1]);
+              e.slowUntil = t_now + 0.2;
+            }
+          }
+        }
+        break;
+      }
+      case 'queue': {
+        // Speeds fans (verify-lite), slows bots. Lv3 grants a passing verified glow.
+        const cfg = TOWERS.queue;
+        for(const e of GS.entities){
+          if(!e.alive) continue;
+          if(dist2(t.x,t.y,e.x,e.y) < t.range*t.range){
+            if(e.kind==='fan'){
+              e.verified = true;
+              e.verifiedUntil = Math.max(e.verifiedUntil, t_now + 1.0);
+              e.speedBoost = Math.max(e.speedBoost||1, cfg.fanSpeed[t.level-1]);
+              if(cfg.autoVerify[t.level-1]) e.verifiedUntil = t_now + 6;
+            } else if(e.kind==='bot'){
+              e.slowFactor = Math.min(e.slowFactor, cfg.botSlow[t.level-1]);
+              e.slowUntil = t_now + 0.2;
+            }
+          }
         }
         break;
       }
@@ -2209,20 +2519,27 @@ function tickTowers(dt){
         break;
       }
       case 'drone': {
-        // Patrol along lane; stun bots touched.
+        // Patrol along lane; stun bots touched. Lv3 adds a second drone body.
+        const cfg = TOWERS.drone;
         const path = t.patrol;
-        const spd = TOWERS.drone.patrolSpeed[t.level-1];
+        const spd = cfg.patrolSpeed[t.level-1];
         t.patrolT += spd*dt * t.patrolDir;
         if(t.patrolT >= path.length || t.patrolT <= 0){ t.patrolDir *= -1; t.patrolT = clamp(t.patrolT,0,path.length); }
-        t.x = path.startX + t.patrolT * Math.cos(0); // straight horizontal patrol
+        t.x = path.startX + t.patrolT;
         t.y = path.y;
-        // stun in radius. Skip disguised ATOs — the drone can't tell them from fans yet.
+        // Second drone body (Lv3) patrols the opposite phase.
+        const twoBodies = cfg.droneCount[t.level-1] >= 2;
+        t.drone2 = twoBodies ? { x: path.startX + (path.length - t.patrolT), y: path.y } : null;
+        const bodies = twoBodies ? [{x:t.x,y:t.y}, t.drone2] : [{x:t.x,y:t.y}];
         for(const e of GS.entities){
           if(!e.alive || e.kind!=='bot') continue;
           if(e.disguised && !e.revealed) continue;
-          if(dist2(t.x,t.y,e.x,e.y) < t.range*t.range){
-            e.stunUntil = Math.max(e.stunUntil, t_now + TOWERS.drone.stunDuration[t.level-1]);
-            spark(e.x, e.y-14, COLORS.stun);
+          for(const b of bodies){
+            if(dist2(b.x,b.y,e.x,e.y) < t.range*t.range){
+              e.stunUntil = Math.max(e.stunUntil, t_now + cfg.stunDuration[t.level-1]);
+              spark(e.x, e.y-14, COLORS.stun);
+              break;
+            }
           }
         }
         break;
@@ -2235,6 +2552,14 @@ function tickTowers(dt){
           if(target){
             t.aimTargetX = target.x; t.aimTargetY = target.y;
             fireProjectile(t, target);
+            // CAPTCHA Lv2+ fires a quick second shot (double-tap).
+            if(t.key==='captcha' && t.level>=2){
+              GS.deferred.push({ at: GS.time + 0.12, fn: () => {
+                if(!GS.towers.includes(t)) return;
+                const tgt = (target.alive) ? target : pickTargetForTower(t);
+                if(tgt) fireProjectile(t, tgt);
+              }});
+            }
             t.cooldown = TOWERS[t.key].fireRate[t.level-1];
             spark(t.x, t.y-10, t.color);
           }
@@ -2258,6 +2583,7 @@ function tickProjectiles(dt){
       const step = p.speed * dt;
       if(d <= step + 8){
         damageEntity(target, p.damage, p.owner);
+        onProjectileImpact(p, target);
         p.dead = true;
       } else {
         p.x += dx/d * step;
@@ -2270,6 +2596,51 @@ function tickProjectiles(dt){
     }
   }
   GS.projectiles = GS.projectiles.filter(p => !p.dead);
+  // tick lightning arcs
+  if(GS.arcs && GS.arcs.length){
+    for(const a of GS.arcs) a.life -= dt;
+    GS.arcs = GS.arcs.filter(a => a.life > 0);
+  }
+}
+
+/* On-impact effects: CAPTCHA Lv3 splash, Velocity Lv3 chain lightning. */
+function onProjectileImpact(p, target){
+  const t = p.owner;
+  if(!t) return;
+  const cfg = TOWERS[t.key];
+  // CAPTCHA Lv3 splash
+  if(t.key==='captcha' && (cfg.splashRadius[t.level-1]||0) > 0){
+    const r = cfg.splashRadius[t.level-1];
+    const frac = cfg.splashDamage[t.level-1];
+    for(const e of GS.entities){
+      if(!e.alive || e===target || e.kind!=='bot') continue;
+      if(e.disguised && !e.revealed) continue;
+      if(dist2(target.x,target.y,e.x,e.y) < r*r){
+        damageEntity(e, p.damage*frac, t);
+      }
+    }
+    // small splash ring particle
+    for(let i=0;i<6;i++){ const a=i/6*Math.PI*2; GS.particles.push({x:target.x,y:target.y,vx:Math.cos(a)*90,vy:Math.sin(a)*90,life:.25,color:COLORS.captcha,size:2}); }
+  }
+  // Velocity Lv3 chain lightning to nearby fast bots
+  if(t.key==='velocity' && (cfg.chainCount[t.level-1]||0) > 0){
+    const n = cfg.chainCount[t.level-1];
+    const cr = cfg.chainRange[t.level-1];
+    let hits = 0;
+    for(const e of GS.entities){
+      if(hits>=n) break;
+      if(!e.alive || e===target || e.kind!=='bot') continue;
+      if(e.disguised && !e.revealed) continue;
+      if((e.speed*e.slowFactor) < 90) continue; // only fast bots
+      if(dist2(target.x,target.y,e.x,e.y) < cr*cr){
+        damageEntity(e, p.damage*0.6, t);
+        // draw arc as a short-lived lightning projectile
+        GS.arcs = GS.arcs || [];
+        GS.arcs.push({ x1:target.x, y1:target.y, x2:e.x, y2:e.y, life:0.18, color:COLORS.velocity });
+        hits++;
+      }
+    }
+  }
 }
 
 /* Move entities. */
@@ -2279,8 +2650,10 @@ function tickEntities(dt){
     if(!e.alive) continue;
     // decay slow
     if(t_now > e.slowUntil){ e.slowFactor = 1; }
-    // stun freezes movement
-    const stunned = t_now < e.stunUntil;
+    // Jammer effect must be re-earned every frame; reset then towers re-set it.
+    e.jammed = false;
+    // stun freezes movement; Security Gate also holds bots in place.
+    const stunned = (t_now < e.stunUntil) || (t_now < e.heldUntil);
 
     // fans get verified speed boost
     let spd = e.speed;
@@ -2296,8 +2669,8 @@ function tickEntities(dt){
       e.x += spd * dt;
     }
 
-    // Proxy lane switching — with a visible "pre-jump" tell so the player can react.
-    if(e.canSwitchLane && !stunned){
+    // Proxy lane switching — disabled while jammed by a Bot Jammer.
+    if(e.canSwitchLane && !stunned && !e.jammed){
       // Only allow switches when the bot is well inside the field so it doesn't jump into the vault.
       const inField = e.x > CFG.LANE_LEFT + 60 && e.x < CFG.LANE_RIGHT - 120;
       if(inField && !e.jumpTellAt && t_now >= e.nextSwitchAt){
@@ -2468,9 +2841,37 @@ function render(dt){
   drawEntities();
   drawTowers();
   drawProjectiles();
+  drawArcs();
   drawParticles();
   drawFloaties();
   drawTopVignette();
+}
+
+/* Chain-lightning arcs (Velocity Trap Lv3). */
+function drawArcs(){
+  if(!GS.arcs || !GS.arcs.length) return;
+  for(const a of GS.arcs){
+    const alpha = clamp(a.life/0.18, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = a.color;
+    ctx.lineWidth = 2.4;
+    ctx.shadowColor = a.color; ctx.shadowBlur = 8;
+    // jagged bolt
+    ctx.beginPath();
+    ctx.moveTo(a.x1, a.y1);
+    const segs = 4;
+    for(let i=1;i<segs;i++){
+      const tt = i/segs;
+      const mx = a.x1 + (a.x2-a.x1)*tt + (CFG.REDUCED_MOTION?0:rand(-8,8));
+      const my = a.y1 + (a.y2-a.y1)*tt + (CFG.REDUCED_MOTION?0:rand(-8,8));
+      ctx.lineTo(mx, my);
+    }
+    ctx.lineTo(a.x2, a.y2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.shadowBlur = 0;
 }
 
 function drawBackground(){
@@ -3031,7 +3432,7 @@ function drawTowers(){
       ctx.beginPath(); ctx.arc(t.x, t.y, t.range*pulse, 0, Math.PI*2); ctx.stroke();
       ctx.restore();
     }
-    // Drone patrol path
+    // Drone patrol path + optional second drone body (Lv3)
     if(t.key==='drone'){
       ctx.save();
       ctx.strokeStyle='rgba(142,168,255,.28)';
@@ -3041,11 +3442,67 @@ function drawTowers(){
       ctx.lineTo(t.patrol.startX + t.patrol.length, t.patrol.y);
       ctx.stroke();
       ctx.setLineDash([]);
-      // stun radius
       ctx.strokeStyle='rgba(255,224,102,.35)';
       ctx.setLineDash([2,3]);
       ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI*2); ctx.stroke();
+      if(t.drone2){
+        ctx.beginPath(); ctx.arc(t.drone2.x, t.drone2.y, t.range, 0, Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]);
+        drawTowerIcon(ctx, t.drone2.x, t.drone2.y, 'drone', t.level, GS.time+99, 1);
+      }
       ctx.setLineDash([]);
+      ctx.restore();
+    }
+    // Security Gate — hold beam field between posts
+    if(t.key==='gate'){
+      ctx.save();
+      const gp = 0.5+0.5*Math.sin(GS.time*6);
+      ctx.globalAlpha = 0.12 + 0.1*gp;
+      ctx.fillStyle=COLORS.gate;
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+    // AI Risk Analyzer — thin scan ring
+    if(t.key==='analyzer'){
+      ctx.save();
+      ctx.strokeStyle=COLORS.analyzer; ctx.globalAlpha=.22;
+      ctx.setLineDash([3,5]); ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+    // Bot Jammer — pulsing disruptor field
+    if(t.key==='jammer'){
+      ctx.save();
+      const jp = (GS.time*0.6)%1;
+      ctx.globalAlpha = .25*(1-jp);
+      ctx.strokeStyle=COLORS.jammer; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range*jp, 0, Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = .12;
+      ctx.fillStyle=COLORS.jammer;
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+    // Queue Manager — green flow field
+    if(t.key==='queue'){
+      ctx.save();
+      ctx.globalAlpha = 0.10 + 0.05*Math.sin(GS.time*3);
+      const g = ctx.createRadialGradient(t.x, t.y, 4, t.x, t.y, t.range);
+      g.addColorStop(0, 'rgba(160,255,106,.5)');
+      g.addColorStop(1, 'rgba(160,255,106,0)');
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+    // Security Camera — wide faint reveal cone/ring
+    if(t.key==='camera'){
+      ctx.save();
+      ctx.strokeStyle=COLORS.camera; ctx.globalAlpha=.18;
+      ctx.setLineDash([2,4]); ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI*2); ctx.stroke();
+      const cp=(GS.time*0.5)%1;
+      ctx.globalAlpha=.22*(1-cp); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range*cp, 0, Math.PI*2); ctx.stroke();
       ctx.restore();
     }
   }
@@ -3138,6 +3595,7 @@ const els = {
   ctxLvl: document.getElementById('ctx-lvl'),
   ctxDmg: document.getElementById('ctx-dmg'),
   ctxRng: document.getElementById('ctx-rng'),
+  ctxNext: document.getElementById('ctx-next'),
   ctxUp: document.getElementById('ctx-upgrade'),
   ctxSell: document.getElementById('ctx-sell'),
   ovrStart: document.getElementById('ovr-start'),
@@ -3299,6 +3757,14 @@ function syncCtxMenu(){
   const cfg = TOWERS[t.key];
   els.ctxUp.disabled = (t.level >= 3) || (GS.credits < (cfg.cost[t.level]||0));
   els.ctxUp.textContent = t.level >= 3 ? 'Maxed' : `Upgrade $${cfg.cost[t.level]}`;
+  // Show what the NEXT level actually does (meaningful upgrades).
+  if(els.ctxNext){
+    if(t.level >= 3){
+      els.ctxNext.textContent = cfg.upgradeDesc ? ('Max — ' + cfg.upgradeDesc[2]) : '';
+    } else {
+      els.ctxNext.textContent = cfg.upgradeDesc ? ('Next: ' + cfg.upgradeDesc[t.level]) : '';
+    }
+  }
 }
 els.ctxUp.addEventListener('click', ()=>{ if(GS.selectedTower) upgradeTower(GS.selectedTower); });
 els.ctxSell.addEventListener('click', ()=>{ if(GS.selectedTower) sellTower(GS.selectedTower); });
@@ -3684,6 +4150,7 @@ function animateScoreCountUp(){
 }
 
 function endGame(win, reason){
+  if(GS.mode==='win' || GS.mode==='lose') return; // ignore double-fire (loss already locked)
   GS.mode = win ? 'win' : 'lose';
   GS.running = false;
   sfxGameOver();
@@ -3791,7 +4258,7 @@ function restart(){
     credits:CFG.START_CREDITS, hp:CFG.START_HP, fanSat:CFG.START_FAN, score:0,
     waveIdx:0, waveRunning:false, waveElapsed:0,
     spawnQueue:[], pendingSpawns:[], deferred:[],
-    entities:[], towers:[], projectiles:[], particles:[], floaties:[],
+    entities:[], towers:[], projectiles:[], arcs:[], particles:[], floaties:[],
     waveTimer:0, time:0, selectedTowerType:null, selectedTower:null, hoverCell:null,
     invalidFlash:0,
     stats:{botsDestroyed:0, fansSafe:0, fansHarmed:0, fansVerifiedSafe:0, botsLeaked:0, waveReached:1, highestCombo:0, maxMult:1},
